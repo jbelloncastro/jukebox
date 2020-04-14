@@ -1,56 +1,103 @@
-from jeepney import DBusAddress
+from functools import partial
 
+from jeepney import DBusAddress
 from jeepney.bus_messages import MatchRule, message_bus
 from jeepney.integrate.blocking import Proxy
 
-from functools import partial
-
-from org_mpris_MediaPlayer2 import Player
+from org_mpris_MediaPlayer2 import Player, TrackList
 
 
-class MatchNameOwnerChanged(MatchRule):
+class MatchSignal(MatchRule):
     "Matching rule for bus owner change signals"
 
-    def __init__(self):
+    def __init__(self, address, name):
         super().__init__(
             type="signal",
-            sender=message_bus.bus_name,
-            interface=message_bus.interface,
-            path=message_bus.object_path,
-            member="NameOwnerChanged",
+            sender=address.bus_name,
+            interface=address.interface,
+            path=address.object_path,
+            member=name,
         )
 
 
-class PlayerStatusTracker:
+class DBusSignals:
+    def NameOwnerChanged(self):
+        return MatchSignal(message_bus, "NameOwnerChanged")
+
+
+class TrackListSignals:
+    def TrackListReplaced(self):
+        return MatchSignal(TrackList(), "TrackListReplaced")
+
+    def TrackAdded(self):
+        return MatchSignal(TrackList(), "TrackAdded")
+
+    def TrackRemoved(self):
+        return MatchSignal(TrackList(), "TrackRemoved")
+
+    def TrackMetadataChanged(self):
+        return MatchSignal(TrackList(), "TrackMetadataChanged")
+
+
+class PlayerListener:
     " Try to track when VLC bus is ready to use (has owner)"
 
     def handleSignal(self, data):
         "Callback for when we receive a NameOwnerChanged signal"
 
         name, old_owner, new_owner = data
-        if name == Player().bus_name:
-            print(
-                'Name {} owner changed from "{}" to "{}"'.format(
-                    name, old_owner, new_owner
-                )
-            )
+        print(
+            'Name {} owner changed from "{}" to "{}"'.format(name, old_owner, new_owner)
+        )
 
     def __init__(self, connection):
-        # This defines messages for talking to the D-Bus bus daemon itself:
+        # Signal matching criteria
+        rule = DBusSignals().NameOwnerChanged()
+        # Match only if sender is the media player
+        rule.add_arg_condition(0, Player().bus_name, "string")
+
+        # Register the callback
+        connection.router.subscribe_signal(
+            path=rule.conditions["path"],
+            interface=rule.conditions["interface"],
+            member=rule.conditions["member"],
+            callback=partial(self.handleSignal),
+        )
+
+        # Object to interact with D-Bus daemon
         session_bus = Proxy(message_bus, connection)
 
-        # Tell the session bus to pass us matching signal messages:
-        success = session_bus.AddMatch(MatchNameOwnerChanged()) == ()
+        # Register signals matching the specified criteria
+        success = session_bus.AddMatch(rule) == ()
         if not success:
-            raise RuntimeError("Could not create matching rule")
+            raise RuntimeError("Could not register matching rule")
 
-        # Bind self and member function
-        callback = partial(self.ownerChanged)
+class TrackListListener:
+    " Try to track when VLC bus is ready to use (has owner)"
 
-        # Connect the callback to the relevant signal
+    def handleSignal(self, data):
+        "Callback for when we receive a NameOwnerChanged signal"
+
+        metadata, afterTrack = data
+        print("Track added after {}:\n{}".format(afterTrack, metadata))
+
+    def __init__(self, connection):
+        # Signal matching criteria
+        rule = TrackListSignals().TrackAdded()
+
+        # Register the callback
         connection.router.subscribe_signal(
-            path=message_bus.object_path,
-            interface=message_bus.interface,
-            member="NameOwnerChanged",
-            callback=callback,
+            path=TrackList().object_path,
+            interface=TrackList().interface,
+            member="TrackAdded",
+            callback=partial(self.handleSignal),
         )
+
+        # Object to interact with D-Bus daemon
+        session_bus = Proxy(message_bus, connection)
+
+        # Register signals matching the specified criteria
+        success = session_bus.AddMatch(rule) == ()
+        if not success:
+            raise RuntimeError("Could not register matching rule")
+
