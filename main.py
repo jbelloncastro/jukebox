@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from jeepney.integrate.blocking import Proxy
 from org_mpris_MediaPlayer2 import Player, TrackList
 from properties import PlayerProperties, TrackListProperties
 from search import YouTubeFinder
@@ -23,16 +24,17 @@ try:
             result = finder.search("they are taking the hobbits to isenhart")
 
             if not playlist:
-                method = Player().OpenUri(result.url)
-                reply = connection.send_and_get_reply(method)
+                player = Proxy(Player(), connection)
+                reply = player.OpenUri(result.url)
             else:
                 # Start playing this one
-                setCurrent = True
+                setCurrent = False
                 # Insert at the beginning of the list
                 track = "/org/mpris/MediaPlayer2/TrackList/NoTrack"
 
-                method = TrackList().AddTrack(result.url, track, setCurrent)
-                reply = connection.send_and_get_reply(method)
+                tracklist = Proxy(TrackList(), connection)
+                reply = tracklist.AddTrack(result.url, track, setCurrent)
+                print(reply)
         elif playlist:
             l = connection.send_and_get_reply(TrackListProperties().Tracks())[0]
             print(l)
