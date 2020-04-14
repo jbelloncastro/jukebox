@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
-from search import YouTubeFinder
 from org_mpris_MediaPlayer2 import Player, TrackList
+from properties import PlayerProperties, TrackListProperties
+from search import YouTubeFinder
 from status import PlayerStatusTracker
-from tracklist import getTracks
 
 # Talk with DBus daemon itself
 from jeepney.integrate.blocking import connect_and_authenticate
@@ -26,15 +26,15 @@ try:
                 method = Player().OpenUri(result.url)
                 reply = connection.send_and_get_reply(method)
             else:
-                setCurrent = True  # Start playing this one
-                track = '/org/mpris/MediaPlayer2/TrackList/NoTrack'
-                method = TrackList().AddTrack(result.url, track, setCurrent)
+                # Start playing this one
+                setCurrent = True
+                # Insert at the beginning of the list
+                track = "/org/mpris/MediaPlayer2/TrackList/NoTrack"
 
+                method = TrackList().AddTrack(result.url, track, setCurrent)
                 reply = connection.send_and_get_reply(method)
         elif playlist:
-            method = getTracks()
-            l = connection.send_and_get_reply(method)[0]
+            l = connection.send_and_get_reply(TrackListProperties().Tracks())[0]
             print(l)
-
 except KeyboardInterrupt:
     pass
