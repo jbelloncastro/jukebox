@@ -24,7 +24,6 @@ class DBusSignals:
     def NameOwnerChanged(self):
         return MatchSignal(message_bus, "NameOwnerChanged")
 
-
 class TrackListSignals:
     def TrackListReplaced(self):
         return MatchSignal(TrackList(), "TrackListReplaced")
@@ -72,32 +71,52 @@ class PlayerListener:
         if not success:
             raise RuntimeError("Could not register matching rule")
 
-class TrackListListener:
-    " Try to track when VLC bus is ready to use (has owner)"
+class PlayStatusListener:
+    " Try to track when VLC changes song, starts and stops playing"
+    def handlePlayStateChange(self, data):
+        pass
+
+    def handleCurrentTrack(self, data):
+        pass
+
+    def handleTrackListChange(self, data):
+        "Callback for when we receive a NameOwnerChanged signal"
+        invalidated = data[2]
+        if 'Tracks' in invalidated:
+            print("Track list changed\n")
+            tracklist_bus = Proxy(TrackListProperties(), self.connection)
+            print(tracklist_bus.Tracks())
 
     def handleSignal(self, data):
-        "Callback for when we receive a NameOwnerChanged signal"
-
-        metadata, afterTrack = data
-        print("Track added after {}:\n{}".format(afterTrack, metadata))
+        interface, changed, invalidated = data
+        print('Interface: {}, Changed: {}, Invalidated: {}'.format(interface, changed, invalidated))
 
     def __init__(self, connection):
-        # Signal matching criteria
-        rule = TrackListSignals().TrackAdded()
-
-        # Register the callback
-        connection.router.subscribe_signal(
-            path=TrackList().object_path,
-            interface=TrackList().interface,
-            member="TrackAdded",
-            callback=partial(self.handleSignal),
-        )
-
+        self.connection = connection
         # Object to interact with D-Bus daemon
         session_bus = Proxy(message_bus, connection)
 
         # Register signals matching the specified criteria
+        rule = MatchRule(type='signal',
+                sender='org.mpris.MediaPlayer2.vlc',
+                interface='org.freedesktop.DBus.Properties',
+                path='/org/mpris/MediaPlayer2',
+                member='PropertiesChanged',
+                )
+
+        # Match only properties in Player and TrackList interfaces
+        # rule.add_arg_condition(0, Player().interface, "string")
+        # rule.add_arg_condition(0, TrackList().interface, "string")
+
         success = session_bus.AddMatch(rule) == ()
         if not success:
             raise RuntimeError("Could not register matching rule")
+
+        # Register callback for tracklist changes
+        connection.router.subscribe_signal(
+            path='/org/mpris/MediaPlayer2',
+            interface='org.freedesktop.DBus.Properties',
+            member="PropertiesChanged",
+            callback=partial(self.handleSignal),
+        )
 
