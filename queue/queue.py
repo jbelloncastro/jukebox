@@ -27,7 +27,7 @@ with connect_and_authenticate(bus="SESSION") as connection:
                 url = result.url
                 list_hash.update(str.encode(result.id))
                 print("Playing url: {}, digest: {}".format(url, list_hash.hexdigest()))
-    
+
                 # Insert at the beginning of the list
                 track = "/org/mpris/MediaPlayer2/TrackList/Append"
                 # track = "/org/mpris/MediaPlayer2/TrackList/NoTrack"
@@ -38,7 +38,7 @@ with connect_and_authenticate(bus="SESSION") as connection:
                 # Resume playing if necessary
                 # Alternative: player.GoTo('/org/videolan/vlc/playlist/{id}')
                 status = playerProperties.PlaybackStatus()[0]
-                resume = status == ('s', 'Stopped')
+                resume = status == ("s", "Stopped")
                 print("Status: {}, Resume: {}".format(status, resume))
                 reply = tracklist.AddTrack(url, track, resume)
                 if resume:

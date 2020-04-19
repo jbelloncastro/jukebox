@@ -87,4 +87,3 @@ class TrackListProperties(Properties):
 
     def CanEditTracks(self):
         return self.get("CanEditTracks")
-

@@ -10,74 +10,78 @@ from jeepney.wrappers import MessageGenerator, new_method_call
 
 
 class MediaPlayer2(MessageGenerator):
-    interface = 'org.mpris.MediaPlayer2'
+    interface = "org.mpris.MediaPlayer2"
 
-    def __init__(self, object_path='/org/mpris/MediaPlayer2',
-                 bus_name='org.mpris.MediaPlayer2.vlc'):
+    def __init__(
+        self,
+        object_path="/org/mpris/MediaPlayer2",
+        bus_name="org.mpris.MediaPlayer2.vlc",
+    ):
         super().__init__(object_path=object_path, bus_name=bus_name)
 
     def Quit(self):
-        return new_method_call(self, 'Quit')
+        return new_method_call(self, "Quit")
 
     def Raise(self):
-        return new_method_call(self, 'Raise')
+        return new_method_call(self, "Raise")
+
 
 class Player(MessageGenerator):
-    interface = 'org.mpris.MediaPlayer2.Player'
+    interface = "org.mpris.MediaPlayer2.Player"
 
-    def __init__(self, object_path='/org/mpris/MediaPlayer2',
-                 bus_name='org.mpris.MediaPlayer2.vlc'):
+    def __init__(
+        self,
+        object_path="/org/mpris/MediaPlayer2",
+        bus_name="org.mpris.MediaPlayer2.vlc",
+    ):
         super().__init__(object_path=object_path, bus_name=bus_name)
 
     def Previous(self):
-        return new_method_call(self, 'Previous')
+        return new_method_call(self, "Previous")
 
     def Next(self):
-        return new_method_call(self, 'Next')
+        return new_method_call(self, "Next")
 
     def Stop(self):
-        return new_method_call(self, 'Stop')
+        return new_method_call(self, "Stop")
 
     def Play(self):
-        return new_method_call(self, 'Play')
+        return new_method_call(self, "Play")
 
     def Pause(self):
-        return new_method_call(self, 'Pause')
+        return new_method_call(self, "Pause")
 
     def PlayPause(self):
-        return new_method_call(self, 'PlayPause')
+        return new_method_call(self, "PlayPause")
 
     def Seek(self, arg0):
-        return new_method_call(self, 'Seek', 'x',
-                               (arg0,))
+        return new_method_call(self, "Seek", "x", (arg0,))
 
     def OpenUri(self, arg0):
-        return new_method_call(self, 'OpenUri', 's',
-                               (arg0,))
+        return new_method_call(self, "OpenUri", "s", (arg0,))
 
     def SetPosition(self, arg0, arg1):
-        return new_method_call(self, 'SetPosition', 'ox',
-                               (arg0, arg1))
+        return new_method_call(self, "SetPosition", "ox", (arg0, arg1))
+
 
 class TrackList(MessageGenerator):
-    interface = 'org.mpris.MediaPlayer2.TrackList'
+    interface = "org.mpris.MediaPlayer2.TrackList"
 
-    def __init__(self, object_path='/org/mpris/MediaPlayer2',
-                 bus_name='org.mpris.MediaPlayer2.vlc'):
+    def __init__(
+        self,
+        object_path="/org/mpris/MediaPlayer2",
+        bus_name="org.mpris.MediaPlayer2.vlc",
+    ):
         super().__init__(object_path=object_path, bus_name=bus_name)
 
     def GetTracksMetadata(self, arg0):
-        return new_method_call(self, 'GetTracksMetadata', 'ao',
-                               (arg0,))
+        return new_method_call(self, "GetTracksMetadata", "ao", (arg0,))
 
     def AddTrack(self, arg0, arg1, arg2):
-        return new_method_call(self, 'AddTrack', 'sob',
-                               (arg0, arg1, arg2))
+        return new_method_call(self, "AddTrack", "sob", (arg0, arg1, arg2))
 
     def RemoveTrack(self, arg0):
-        return new_method_call(self, 'RemoveTrack', 'o',
-                               (arg0,))
+        return new_method_call(self, "RemoveTrack", "o", (arg0,))
 
     def GoTo(self, arg0):
-        return new_method_call(self, 'GoTo', 'o',
-                               (arg0,))
+        return new_method_call(self, "GoTo", "o", (arg0,))

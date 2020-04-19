@@ -11,6 +11,7 @@ from properties import TrackListProperties
 
 from track_metadata import parseTrackMetadata
 
+
 class PlayerListener:
     " Try to track when VLC bus is ready to use (has owner)"
 
@@ -45,8 +46,10 @@ class PlayerListener:
         if not success:
             raise RuntimeError("Could not register matching rule")
 
+
 class PlayStatusListener:
     " Try to track when VLC changes song, starts and stops playing"
+
     def handlePlayStateChange(self, data):
         pass
 
@@ -56,7 +59,7 @@ class PlayStatusListener:
     def handleTrackListChange(self, data):
         "Callback for when we receive a NameOwnerChanged signal"
         invalidated = data[2]
-        if 'Tracks' in invalidated:
+        if "Tracks" in invalidated:
             print("Track list changed\n")
             tracklist_bus = Proxy(TrackListProperties(), self.connection)
             tracks = tracklist_bus.Tracks()
@@ -65,16 +68,21 @@ class PlayStatusListener:
 
     def handleSignal(self, data):
         interface, changed, invalidated = data
-        print('Interface: {}, Changed: {}, Invalidated: {}'.format(interface, changed, invalidated))
-        if 'Tracks' in invalidated:
+        print(
+            "Interface: {}, Changed: {}, Invalidated: {}".format(
+                interface, changed, invalidated
+            )
+        )
+        if "Tracks" in invalidated:
             tracklist_bus = Proxy(TrackList(), self.connection)
-            tracks = tracklist_bus.GetTracksMetadata(['/org/videolan/vlc/playlist/10',
-                                                      '/org/videolan/vlc/playlist/9'])
+            tracks = tracklist_bus.GetTracksMetadata(
+                ["/org/videolan/vlc/playlist/10", "/org/videolan/vlc/playlist/9"]
+            )
             metadata = []
             for track in tracks[0]:
-                 t = parseTrackMetadata(track)
-                 print(repr(t))
-                 metadata.append(t)
+                t = parseTrackMetadata(track)
+                print(repr(t))
+                metadata.append(t)
 
     def __init__(self, connection):
         self.connection = connection
@@ -94,8 +102,8 @@ class PlayStatusListener:
 
         # Register callback for tracklist changes
         connection.router.subscribe_signal(
-            path='/org/mpris/MediaPlayer2',
-            interface='org.freedesktop.DBus.Properties',
+            path="/org/mpris/MediaPlayer2",
+            interface="org.freedesktop.DBus.Properties",
             member="PropertiesChanged",
             callback=partial(self.handleSignal),
         )
@@ -121,9 +129,8 @@ class TrackListListener:
 
         # Register callback for tracklist changes
         connection.router.subscribe_signal(
-            path='/org/mpris/MediaPlayer2',
-            interface='org.freedesktop.DBus.Properties',
+            path="/org/mpris/MediaPlayer2",
+            interface="org.freedesktop.DBus.Properties",
             member="PropertiesChanged",
             callback=partial(self.handleTrackListChange),
         )
-
