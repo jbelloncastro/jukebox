@@ -4,7 +4,7 @@ from jeepney.integrate.blocking import Proxy
 from org_mpris_MediaPlayer2 import Player, TrackList
 from properties import PlayerProperties, TrackListProperties
 from search import YouTubeFinder
-from status import PlayerListener, PlayStatusListener
+from status import PlayerListener, PlayStatusListener, TrackListListener
 
 # Talk with DBus daemon itself
 from jeepney.integrate.blocking import connect_and_authenticate

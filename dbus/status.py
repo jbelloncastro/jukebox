@@ -6,37 +6,10 @@ from jeepney.integrate.blocking import Proxy
 
 from org_mpris_MediaPlayer2 import Player, TrackList
 
+from signals import PropertiesChanged, TrackAdded
+from properties import TrackListProperties
 
-class MatchSignal(MatchRule):
-    "Matching rule for bus owner change signals"
-
-    def __init__(self, address, name):
-        super().__init__(
-            type="signal",
-            sender=address.bus_name,
-            interface=address.interface,
-            path=address.object_path,
-            member=name,
-        )
-
-
-class DBusSignals:
-    def NameOwnerChanged(self):
-        return MatchSignal(message_bus, "NameOwnerChanged")
-
-class TrackListSignals:
-    def TrackListReplaced(self):
-        return MatchSignal(TrackList(), "TrackListReplaced")
-
-    def TrackAdded(self):
-        return MatchSignal(TrackList(), "TrackAdded")
-
-    def TrackRemoved(self):
-        return MatchSignal(TrackList(), "TrackRemoved")
-
-    def TrackMetadataChanged(self):
-        return MatchSignal(TrackList(), "TrackMetadataChanged")
-
+from track_metadata import parseTrackMetadata
 
 class PlayerListener:
     " Try to track when VLC bus is ready to use (has owner)"
@@ -51,7 +24,8 @@ class PlayerListener:
 
     def __init__(self, connection):
         # Signal matching criteria
-        rule = DBusSignals().NameOwnerChanged()
+        rule = PropertiesChanged()
+
         # Match only if sender is the media player
         rule.add_arg_condition(0, Player().bus_name, "string")
 
@@ -85,11 +59,22 @@ class PlayStatusListener:
         if 'Tracks' in invalidated:
             print("Track list changed\n")
             tracklist_bus = Proxy(TrackListProperties(), self.connection)
-            print(tracklist_bus.Tracks())
+            tracks = tracklist_bus.Tracks()
+            for track in tracklist_bus.GetTracksMetadata(tracks):
+                print(parseTrackMetadata(track))
 
     def handleSignal(self, data):
         interface, changed, invalidated = data
         print('Interface: {}, Changed: {}, Invalidated: {}'.format(interface, changed, invalidated))
+        if 'Tracks' in invalidated:
+            tracklist_bus = Proxy(TrackList(), self.connection)
+            tracks = tracklist_bus.GetTracksMetadata(['/org/videolan/vlc/playlist/10',
+                                                      '/org/videolan/vlc/playlist/9'])
+            metadata = []
+            for track in tracks[0]:
+                 t = parseTrackMetadata(track)
+                 print(repr(t))
+                 metadata.append(t)
 
     def __init__(self, connection):
         self.connection = connection
@@ -97,12 +82,7 @@ class PlayStatusListener:
         session_bus = Proxy(message_bus, connection)
 
         # Register signals matching the specified criteria
-        rule = MatchRule(type='signal',
-                sender='org.mpris.MediaPlayer2.vlc',
-                interface='org.freedesktop.DBus.Properties',
-                path='/org/mpris/MediaPlayer2',
-                member='PropertiesChanged',
-                )
+        rule = PropertiesChanged()
 
         # Match only properties in Player and TrackList interfaces
         # rule.add_arg_condition(0, Player().interface, "string")
@@ -118,5 +98,32 @@ class PlayStatusListener:
             interface='org.freedesktop.DBus.Properties',
             member="PropertiesChanged",
             callback=partial(self.handleSignal),
+        )
+
+
+class TrackListListener:
+    def handleTrackListChange(self, data):
+        "Callback for when we receive a TrackAdded signal"
+        metadata, _ = data
+        print("Added new track: {}".format(metadata))
+
+    def __init__(self, connection):
+        self.connection = connection
+        # Object to interact with D-Bus daemon
+        session_bus = Proxy(message_bus, connection)
+
+        # Register signals matching the specified criteria
+        rule = TrackAdded()
+
+        success = session_bus.AddMatch(rule) == ()
+        if not success:
+            raise RuntimeError("Could not register matching rule")
+
+        # Register callback for tracklist changes
+        connection.router.subscribe_signal(
+            path='/org/mpris/MediaPlayer2',
+            interface='org.freedesktop.DBus.Properties',
+            member="PropertiesChanged",
+            callback=partial(self.handleTrackListChange),
         )
 
