@@ -18,19 +18,19 @@ class MediaPlayer2Properties(Properties):
     def SupportedUriSchemes(self):
         return self.get("SupportedUriSchemes")
 
-    def HasTrackLis(self):
+    def HasTrackList(self):
         return self.get("HasTrackList")
 
-    def CanQui(self):
+    def CanQuit(self):
         return self.get("CanQuit")
 
-    def CanSetFullscree(self):
+    def CanSetFullscreen(self):
         return self.get("CanSetFullscreen")
 
-    def Fullscree(self):
+    def Fullscreen(self):
         return self.get("Fullscreen")
 
-    def CanRais(self):
+    def CanRaise(self):
         return self.get("CanRaise")
 
 
@@ -38,43 +38,43 @@ class PlayerProperties(Properties):
     def __init__(self):
         super().__init__(Player())
 
-    def Metadat(self):
+    def Metadata(self):
         return self.get("Metadata")
 
-    def PlaybackStatu(self):
+    def PlaybackStatus(self):
         return self.get("PlaybackStatus")
 
-    def LoopStatu(self):
+    def LoopStatus(self):
         return self.get("LoopStatus")
 
-    def Volum(self):
+    def Volume(self):
         return self.get("Volume")
 
-    def Shuffl(self):
+    def Shuffle(self):
         return self.get("Shuffle")
 
-    def Positio(self):
+    def Position(self):
         return self.get("Position")
 
-    def Rat(self):
+    def Rate(self):
         return self.get("Rate")
 
-    def MinimumRat(self):
+    def MinimumRate(self):
         return self.get("MinimumRate")
 
-    def MaximumRat(self):
+    def MaximumRate(self):
         return self.get("MaximumRate")
 
-    def CanContro(self):
+    def CanControl(self):
         return self.get("CanControl")
 
-    def CanPla(self):
+    def CanPlay(self):
         return self.get("CanPlay")
 
-    def CanPaus(self):
+    def CanPause(self):
         return self.get("CanPause")
 
-    def CanSee(self):
+    def CanSeek(self):
         return self.get("CanSeek")
 
 
@@ -85,6 +85,6 @@ class TrackListProperties(Properties):
     def Tracks(self):
         return self.get("Tracks")
 
-    def CanEditTrack(self):
+    def CanEditTracks(self):
         return self.get("CanEditTracks")
 
