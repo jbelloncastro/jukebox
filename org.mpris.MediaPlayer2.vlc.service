@@ -1,0 +1,5 @@
+# Note: install in /usr/share/dbus-1/services/
+[D-BUS Service]
+Name=org.mpris.MediaPlayer2.vlc
+Exec=/bin/false
+SystemdService=vlc.service
