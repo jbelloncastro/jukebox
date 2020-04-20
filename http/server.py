@@ -7,8 +7,21 @@ from jeepney.integrate.asyncio import connect_and_authenticate
 
 import pystache
 
-from jukebox.queue import Queue
+import json
+
+from jukebox.queue import Queue, Track
 from jukebox.search import YouTubeFinder
+
+class TrackEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Track):
+            return {
+                    'id' : obj.id,
+                    'title' : obj.title,
+                    'caption' : obj.caption
+                    }
+        return super().default(obj)
+
 
 finder = YouTubeFinder()
 
@@ -41,7 +54,10 @@ async def getRoot(request):
 
 
 async def getTracks(request):
-    return json_response(data=queue.queue)
+    encoder = lambda body : json.dumps(body, cls=TrackEncoder)
+    return json_response(data=queue.queue,
+                         headers={'ETag' : queue.hash.hexdigest()},
+                         dumps=encoder)
 
 async def addTrack(request):
     query = await request.text()
