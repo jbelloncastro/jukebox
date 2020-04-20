@@ -1,6 +1,20 @@
 from aiohttp import web
+from aiohttp.web_response import json_response
+
+import asyncio
+
+from jeepney.integrate.asyncio import connect_and_authenticate
 
 import pystache
+
+from jukebox.queue import Queue
+from jukebox.search import YouTubeFinder
+
+finder = YouTubeFinder()
+
+loop = asyncio.get_event_loop()
+(transport, protocol) = loop.run_until_complete(connect_and_authenticate(bus="SESSION"))
+queue = Queue(protocol)
 
 page = None
 renderer = pystache.renderer.Renderer()
@@ -27,15 +41,17 @@ async def getRoot(request):
 
 
 async def getTracks(request):
-    name = request.match_info.get("name", "Anonymous")
-    text = "Hello, " + name
-    return web.Response(text=text)
-
+    return json_response(data=queue.queue)
 
 async def addTrack(request):
-    name = request.match_info.get("name", "Anonymous")
-    text = "Hello, " + name
-    return web.Response(text=text)
+    query = await request.text()
+    if not query:
+        return web.HTTPBadRequest(text="Illegal search query")
+
+    result = finder.search(query)
+    await queue.addTrack(result)
+
+    return web.Response(headers={'ETag' : queue.hash.hexdigest()})
 
 
 app = web.Application()

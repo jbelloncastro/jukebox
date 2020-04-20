@@ -15,28 +15,27 @@ class Track:
         self.url = url
 
 class Queue:
-    def __init__(self, connection):
+    def __init__(self, protocol):
         self.hash = hashlib.sha1()
-        self.tracklist = Proxy(TrackList(), connection)
-        self.player = Proxy(Player(), connection)
-        self.playerProperties = Proxy(PlayerProperties(), connection)
+        self.protocol = protocol
 
         self.queue = []
 
         # Subscribe to /org/mpris/MediaPlayer2/Metadata property changes,
         # which mean the song has changed
 
-    def addTrack(self, track):
+    async def addTrack(self, track):
         self.queue.append(track)
         self.hash.update(str.encode(track.id))
 
         # Resume playing if necessary
-        status = self.playerProperties.PlaybackStatus()[0]
-        resume = status == ("s", "Stopped")
+        playerStatus = PlayerProperties().PlaybackStatus()
+        status = await self.protocol.send_message(playerStatus)
+        resume = status[0] == ("s", "Stopped")
         
         trackIdTail = '/org/mpris/MediaPlayer2/TrackList/Append'
-        reply = self.tracklist.AddTrack(track.url, trackIdTail, resume)
-        print(reply)
+        addTrack = TrackList().AddTrack(track.url, trackIdTail, resume)
+        await self.protocol.send_message(addTrack)
         return self.queue
 
     def handleSongCompleted(self):
