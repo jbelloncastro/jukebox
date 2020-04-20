@@ -1,8 +1,9 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
         <title>Jukebox</title>
-        <link rel="stylesheet" href="awsm_theme_big-stone.min.css">
-        <link rel="stylesheet" href="layout.css">
+        <link rel="stylesheet" href="https://igoradamenko.github.io/awsm.css/css/awsm_theme_big-stone.min.css">
+        <script type="text/javascript" src="/submit.js"></script>
     </head>
     <body>
         <h1>Coronation Rd. Jukebox</h1>
@@ -27,5 +28,16 @@
                 {{/next}}
             </table>
         </div>
+        <form id="search">
+            <input type="text" id="query" name="query">
+            <input type="submit" value="Queue">
+        </form>
+        <script>
+            var form = document.getElementById("search");
+            form.addEventListener('submit', function (e) {
+                e.preventDefault(); // Prevent submitting the form
+                doSubmit();
+            });
+        </script>
     </body>
 </html>

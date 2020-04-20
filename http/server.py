@@ -1,5 +1,6 @@
 from aiohttp import web
 from aiohttp.web_response import json_response
+from aiohttp.web_fileresponse import FileResponse
 
 import asyncio
 
@@ -30,11 +31,12 @@ loop = asyncio.get_event_loop()
 queue = Queue(protocol)
 
 page = None
-renderer = pystache.renderer.Renderer()
-with open("../html/index.mustache", "r") as f:
-    template = f.read()
-    print(template)
-    page = pystache.parse(template)
+def render(state):
+    renderer = pystache.renderer.Renderer()
+    with open("../html/index.mustache", "r") as f:
+        template = f.read()
+        page = pystache.parse(template)
+        return renderer.render(page, state)
 
 
 async def getRoot(request):
@@ -48,8 +50,7 @@ async def getRoot(request):
         },
         "next": [],
     }
-    text = renderer.render(page, state)
-    print (text)
+    text = render(state)
     return web.Response(text=text, content_type="text/html")
 
 
@@ -69,6 +70,8 @@ async def addTrack(request):
 
     return web.Response(headers={'ETag' : queue.hash.hexdigest()})
 
+async def submitJS(request):
+    return FileResponse(path="../html/submit.js")
 
 app = web.Application()
 app.add_routes(
@@ -76,9 +79,9 @@ app.add_routes(
         web.get("/", getRoot),
         web.get("/tracks", getTracks),
         web.post("/tracks", addTrack),
+        web.get("/submit.js", submitJS),
     ]
 )
 
-# Default: http://localhost:8080
 if __name__ == "__main__":
-    web.run_app(app)
+    web.run_app(app, host="0.0.0.0", port="8080")
