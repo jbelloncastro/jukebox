@@ -1,5 +1,5 @@
 from jeepney import Properties
-from org_mpris_MediaPlayer2 import MediaPlayer2, Player, TrackList
+from . import MediaPlayer2, Player, TrackList
 
 
 class MediaPlayer2Properties(Properties):

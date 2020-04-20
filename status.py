@@ -11,42 +11,6 @@ from properties import TrackListProperties
 
 from track_metadata import parseTrackMetadata
 
-
-class PlayerListener:
-    " Try to track when VLC bus is ready to use (has owner)"
-
-    def handleSignal(self, data):
-        "Callback for when we receive a NameOwnerChanged signal"
-
-        name, old_owner, new_owner = data
-        print(
-            'Name {} owner changed from "{}" to "{}"'.format(name, old_owner, new_owner)
-        )
-
-    def __init__(self, connection):
-        # Signal matching criteria
-        rule = PropertiesChanged()
-
-        # Match only if sender is the media player
-        rule.add_arg_condition(0, Player().bus_name, "string")
-
-        # Register the callback
-        connection.router.subscribe_signal(
-            path=rule.conditions["path"],
-            interface=rule.conditions["interface"],
-            member=rule.conditions["member"],
-            callback=partial(self.handleSignal),
-        )
-
-        # Object to interact with D-Bus daemon
-        session_bus = Proxy(message_bus, connection)
-
-        # Register signals matching the specified criteria
-        success = session_bus.AddMatch(rule) == ()
-        if not success:
-            raise RuntimeError("Could not register matching rule")
-
-
 class PlayStatusListener:
     " Try to track when VLC changes song, starts and stops playing"
 

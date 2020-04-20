@@ -1,11 +1,3 @@
-class Track:
-    def __init__(self, tid, title, caption, tags, url):
-        self.id = tid
-        self.title = title
-        self.caption = caption
-        self.tags = tags
-        self.url = url
-
 
 class TrackMetadata:
     "VLC track metadata"

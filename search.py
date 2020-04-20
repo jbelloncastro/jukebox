@@ -1,8 +1,7 @@
 # Perform YouTube video searches
-import youtube_dl
+from youtube_dl import YoutubeDL
 
-from track_metadata import Track
-
+from .queue import Track
 
 class YouTubeFinder:
     def __init__(self):
@@ -10,7 +9,7 @@ class YouTubeFinder:
 
         options = {"format": "bestaudio/best", "simulate": True}
 
-        self.downloader = youtube_dl.YoutubeDL(options)
+        self.downloader = YoutubeDL(options)
 
     def search(self, query):
         "Search YouTube for the first result and returns information "
