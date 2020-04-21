@@ -3,6 +3,7 @@
     <head>
         <title>Jukebox</title>
         <link rel="stylesheet" href="https://igoradamenko.github.io/awsm.css/css/awsm_theme_big-stone.min.css">
+        <link rel="stylesheet" href="/layout.css">
         <script type="text/javascript" src="/submit.js"></script>
     </head>
     <body>
@@ -11,7 +12,7 @@
             <h2>Now playing</h2>
             {{#current}}
             <div id="title"><p>{{title}}. {{uploader}}.</p></div>
-            <img id="thumbnail" src="{{thumbnail}}"/>
+            <img id="thumbnail" width="30%" src="{{caption}}"/>
             <p id="tags">{{#tags}}{{.}}{{#hasNext}}, {{/hasNext}}{{/tags}}</p>
             {{/current}}
         </div>
@@ -19,12 +20,10 @@
             <h2>Next</h2>
             <table>
                 {{#next}}
-                {{#item}}
                 <tr>
-                    <th>#</th>
+                    <th>{{id}}</th>
                     <th>{{title}}</th>
                 </tr>
-                {{/item}}
                 {{/next}}
             </table>
         </div>

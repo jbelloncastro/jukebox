@@ -1,0 +1,14 @@
+h2 {
+    vertical-align: middle;
+    height: 2em;
+}
+.current {
+    float: left;
+    margin-right: 1em;
+}
+.playlist {
+    float: auto
+}
+#thumbnail {
+    width: 15em;
+}

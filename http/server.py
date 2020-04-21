@@ -13,6 +13,8 @@ import json
 from jukebox.queue import Queue, Track
 from jukebox.search import YouTubeFinder
 
+from functools import partial
+
 class TrackEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Track):
@@ -40,16 +42,13 @@ def render(state):
 
 
 async def getRoot(request):
-    # name = request.match_info.get("name", "Anonymous")
-    state = {
-        "current": {
-            "thumbnail": "https://i.ytimg.com/vi/uE-1RPDqJAY/hqdefault.jpg",
-            "title": "They are taking the hobbits to isengart",
-            "uploader": "unknown",
-            "tags": [],
-        },
-        "next": [],
-    }
+    state = {}
+    if len(queue.queue) > 0:
+        state["current"] = queue.queue[0]
+    if len(queue.queue) > 1:
+        state["next"] = queue.queue[1:]
+
+    print(json.dumps(state, cls=TrackEncoder))
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 
@@ -70,8 +69,8 @@ async def addTrack(request):
 
     return web.Response(headers={'ETag' : queue.hash.hexdigest()})
 
-async def submitJS(request):
-    return FileResponse(path="../html/submit.js")
+async def sendFile(name, request):
+    return FileResponse(path="../html/{}".format(name))
 
 app = web.Application()
 app.add_routes(
@@ -79,7 +78,8 @@ app.add_routes(
         web.get("/", getRoot),
         web.get("/tracks", getTracks),
         web.post("/tracks", addTrack),
-        web.get("/submit.js", submitJS),
+        web.get("/submit.js", partial(sendFile,'submit.js')),
+        web.get("/layout.css", partial(sendFile,'layout.css')),
     ]
 )
 
