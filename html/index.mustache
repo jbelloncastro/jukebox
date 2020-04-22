@@ -6,7 +6,7 @@
         <link rel="stylesheet" href="/assets/layout.css">
         <script type="text/javascript" src="/assets/submit.js"></script>
     </head>
-    <body>
+    <body onload="onLoad()">
         <h1>Coronation Rd. Jukebox</h1>
         <div class="current">
             <h2>Now playing</h2>
@@ -33,12 +33,5 @@
         </form>
         <ul id="list">
         </ul>
-        <script>
-            var form = document.getElementById("search");
-            form.addEventListener('submit', function (e) {
-                e.preventDefault(); // Prevent submitting the form
-                doSubmit();
-            });
-        </script>
     </body>
 </html>

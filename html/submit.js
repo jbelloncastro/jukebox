@@ -18,12 +18,27 @@ function doSubmit() {
     request.send(postData);
 }
 
-const evtSource = new EventSource("/changes");
-evtSource.onmessage = function(event) {
-  const newElement = document.createElement("li");
-  const eventList = document.getElementById("list");
+function onLoad() {
+    // Replace form submit action to avoid reloading the page
+    var form = document.getElementById("search");
+    form.addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent submitting the form
+        doSubmit();
+    });
 
-  newElement.innerHTML = "message: " + event.data;
-  eventList.appendChild(newElement);
+    // Subscribe to server-sent song change events
+    const evtSource = new EventSource("/changes");
+    evtSource.onmessage = function(event) {
+      // 'event.data' contains the new queue state
+      /*
+      const newElement = document.createElement("li");
+      const eventList = document.getElementById("list");
+
+      newElement.innerHTML = "message: " + event.data;
+      eventList.appendChild(newElement);
+      */
+
+      // FIXME For now just refresh the page to get it updated
+      location.reload()
+    }
 }
-
