@@ -58,7 +58,6 @@ def queueState():
 
 async def getRoot(request):
     state = queueState()
-    print(encodeQueue(state))
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 
@@ -81,13 +80,11 @@ async def addTrack(request):
 
 async def notifyChange(request):
     async with sse_response(request) as response:
-        print('Someone joined.')
         events = asyncio.Queue()
         queue.addListener(events)
         try:
             while not response.task.done():
                 payload = encodeQueue(await events.get())
-                print("Sending song change event")
                 await response.send(payload)
                 events.task_done()
         finally:
