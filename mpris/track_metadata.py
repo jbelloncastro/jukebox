@@ -1,4 +1,3 @@
-
 class TrackMetadata:
     "VLC track metadata"
 
@@ -16,5 +15,7 @@ def parseTrackMetadata(reply):
         _, value = variant  # we don't really need the type
         result[key] = value
     return TrackMetadata(
-        result["mpris:trackid"], result["xesam:url"], result["mpris:length"]
+        result.get("mpris:trackid", None),
+        result.get("xesam:url", None),
+        result.get("mpris:length", None),
     )

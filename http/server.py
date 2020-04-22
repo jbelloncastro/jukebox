@@ -4,7 +4,7 @@ from aiohttp.web_fileresponse import FileResponse
 
 import asyncio
 
-from jeepney.integrate.asyncio import connect_and_authenticate
+from jeepney.integrate.asyncio import connect_and_authenticate, Proxy
 
 import pystache
 
@@ -14,6 +14,10 @@ from jukebox.queue import Queue, Track
 from jukebox.search import YouTubeFinder
 
 from functools import partial
+
+finder = None
+queue = None
+page = None
 
 class TrackEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -25,14 +29,13 @@ class TrackEncoder(json.JSONEncoder):
                     }
         return super().default(obj)
 
+async def initialize():
+    (_, protocol) = await connect_and_authenticate(bus="SESSION")
+    queue = Queue(protocol)
+    await queue.registerHandler()
+    finder = YouTubeFinder()
+    return (finder, queue)
 
-finder = YouTubeFinder()
-
-loop = asyncio.get_event_loop()
-(transport, protocol) = loop.run_until_complete(connect_and_authenticate(bus="SESSION"))
-queue = Queue(protocol)
-
-page = None
 def render(state):
     renderer = pystache.renderer.Renderer()
     with open("../html/index.mustache", "r") as f:
@@ -40,22 +43,25 @@ def render(state):
         page = pystache.parse(template)
         return renderer.render(page, state)
 
-
-async def getRoot(request):
+def queueState():
     state = {}
     if len(queue.queue) > 0:
         state["current"] = queue.queue[0]
     if len(queue.queue) > 1:
         state["next"] = queue.queue[1:]
+    return state
 
+async def getRoot(request):
+    state = queueState()
     print(json.dumps(state, cls=TrackEncoder))
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 
 
 async def getTracks(request):
+    state = queueState()
     encoder = lambda body : json.dumps(body, cls=TrackEncoder)
-    return json_response(data=queue.queue,
+    return json_response(data=state,
                          headers={'ETag' : queue.hash.hexdigest()},
                          dumps=encoder)
 
@@ -69,8 +75,9 @@ async def addTrack(request):
 
     return web.Response(headers={'ETag' : queue.hash.hexdigest()})
 
-async def sendFile(name, request):
-    return FileResponse(path="../html/{}".format(name))
+# Start
+loop = asyncio.get_event_loop()
+(finder, queue) = loop.run_until_complete(initialize())
 
 app = web.Application()
 app.add_routes(
@@ -78,8 +85,7 @@ app.add_routes(
         web.get("/", getRoot),
         web.get("/tracks", getTracks),
         web.post("/tracks", addTrack),
-        web.get("/submit.js", partial(sendFile,'submit.js')),
-        web.get("/layout.css", partial(sendFile,'layout.css')),
+        web.static("/assets", "/home/jbellon/test/ytube-dl/jukebox/html"),
     ]
 )
 
