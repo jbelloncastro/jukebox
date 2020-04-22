@@ -91,7 +91,7 @@ async def notifyChange(request):
                 await response.send(payload)
                 events.task_done()
         finally:
-            queue.removeListener(queue)
+            queue.removeListener(events)
     return response
 
 
