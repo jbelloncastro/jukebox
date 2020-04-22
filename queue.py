@@ -1,4 +1,4 @@
-from asyncio import get_event_loop
+from asyncio import get_event_loop, gather
 
 from jeepney.integrate.asyncio import Proxy
 from jeepney.bus_messages import MatchRule, DBus
@@ -36,7 +36,10 @@ class Queue:
         self.hash = hashlib.sha1()
         self.protocol = protocol
 
+        # List of tracks
         self.queue = []
+        # Clients subscribed to song change events
+        self.listeners = set()
 
     async def addTrack(self, track):
         self.queue.append(track)
@@ -51,6 +54,12 @@ class Queue:
         addTrack = TrackList().AddTrack(track.url, trackIdTail, resume)
         await self.protocol.send_message(addTrack)
         return self.queue
+
+    def addListener(self, eventQueue):
+        self.listeners.add(eventQueue)
+
+    def removeListener(self, eventQueue):
+        self.listeners.remove(eventQueue)
 
     async def registerHandler(self):
         # Subscribe to /org/mpris/MediaPlayer2/Metadata property changes,
@@ -106,5 +115,8 @@ class Queue:
             # Remove all elements from queue until the current
             mismatchCurrent = lambda x: x.hash != h
             it = dropwhile(mismatchCurrent, iter(self.queue))
-            self.queue = list(it)
+            self.queue = list(it) # TODO: Update ETag hash
+
+            # Notify clients of song changed event
+            await gather(*[client.put(self.queue) for client in self.listeners])
 

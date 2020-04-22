@@ -17,3 +17,13 @@ function doSubmit() {
     request.setRequestHeader("Content-Type", "application/json");
     request.send(postData);
 }
+
+const evtSource = new EventSource("/changes");
+evtSource.onmessage = function(event) {
+  const newElement = document.createElement("li");
+  const eventList = document.getElementById("list");
+
+  newElement.innerHTML = "message: " + event.data;
+  eventList.appendChild(newElement);
+}
+

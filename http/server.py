@@ -1,6 +1,7 @@
 from aiohttp import web
 from aiohttp.web_response import json_response
 from aiohttp.web_fileresponse import FileResponse
+from aiohttp_sse import EventSourceResponse, sse_response
 
 import asyncio
 
@@ -29,6 +30,10 @@ class TrackEncoder(json.JSONEncoder):
                     }
         return super().default(obj)
 
+def encodeQueue(queue):
+    return json.dumps(queue, cls=TrackEncoder)
+
+
 async def initialize():
     (_, protocol) = await connect_and_authenticate(bus="SESSION")
     queue = Queue(protocol)
@@ -53,17 +58,16 @@ def queueState():
 
 async def getRoot(request):
     state = queueState()
-    print(json.dumps(state, cls=TrackEncoder))
+    print(encodeQueue(state))
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 
 
 async def getTracks(request):
     state = queueState()
-    encoder = lambda body : json.dumps(body, cls=TrackEncoder)
     return json_response(data=state,
                          headers={'ETag' : queue.hash.hexdigest()},
-                         dumps=encoder)
+                         dumps=encodeQueue)
 
 async def addTrack(request):
     query = await request.text()
@@ -75,6 +79,22 @@ async def addTrack(request):
 
     return web.Response(headers={'ETag' : queue.hash.hexdigest()})
 
+async def notifyChange(request):
+    async with sse_response(request) as response:
+        print('Someone joined.')
+        events = asyncio.Queue()
+        queue.addListener(events)
+        try:
+            while not response.task.done():
+                payload = encodeQueue(await events.get())
+                print("Sending song change event")
+                await response.send(payload)
+                events.task_done()
+        finally:
+            queue.removeListener(queue)
+    return response
+
+
 # Start
 loop = asyncio.get_event_loop()
 (finder, queue) = loop.run_until_complete(initialize())
@@ -85,6 +105,7 @@ app.add_routes(
         web.get("/", getRoot),
         web.get("/tracks", getTracks),
         web.post("/tracks", addTrack),
+        web.get("/changes", notifyChange),
         web.static("/assets", "/home/jbellon/test/ytube-dl/jukebox/html"),
     ]
 )
