@@ -2,15 +2,15 @@ h2 {
     vertical-align: middle;
     height: 2em;
 }
+.undefined {
+    display: none;
+}
 .current {
     float: left;
     margin-right: 1em;
 }
 .playlist {
     float: auto;
-}
-#tags {
-    display: none;
 }
 #thumbnail {
     width: 15em;

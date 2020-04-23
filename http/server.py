@@ -57,7 +57,13 @@ def queueState():
     return state
 
 async def getRoot(request):
+    isMobile = False
+    agent = request.headers.get('User-agent', None)
+    if agent:
+        isMobile = 'Mobile' in agent
+
     state = queueState()
+    state['mobile'] = isMobile
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 
@@ -76,7 +82,7 @@ async def addTrack(request):
     result = finder.search(query)
     await queue.addTrack(result)
 
-    return web.Response(headers={'ETag' : queue.hash.hexdigest()})
+    return await getTracks(request)
 
 async def notifyChange(request):
     async with sse_response(request) as response:

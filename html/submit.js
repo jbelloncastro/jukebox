@@ -1,6 +1,46 @@
+var domCurrent = null;
+var domTitle = null;
+var domThumbnail = null;
+var domNextTable = null;
+var domForm = null;
+
+// Resets #current and #playlist div elements with the latest values of
+// current and following variables
+// Assume all the dom elements have been queried (onLoad() was called)
+function updateList(queue) {
+    if (queue.current != null) {
+        domTitle.innerHTML = queue.current.title;
+        domThumbnail.src = queue.current.caption;
+        domCurrent.classList.remove("undefined");
+    } else {
+        domCurrent.classList.add("undefined");
+    }
+    if (queue.next != null) {
+        var r = new Array();
+        var j = -1;
+        r[++j] = "<tr><th>Id</th><th>Title</th></tr>";
+        for (var i=0; i < queue.next.length; i++){
+            if (i % 2 == 0) {
+                r[++j] = '<tr class="even"><td>';
+            } else {
+                r[++j] = '<tr class="odd"><td>';
+            }
+            r[++j] = i;
+            r[++j] = '</td><td>';
+            r[++j] = queue.next[i].title;
+            r[++j] = '</td></tr>';
+        }
+        domNextTable.innerHTML = r.join('');
+        playlist.classList.remove("undefined");
+    } else {
+        playlist.classList.add("undefined");
+    }
+}
+
 function doSubmit() {
     var url = "/tracks";
     var method = "POST";
+    // FIXME: add quotes for a valid json string
     var postData = document.getElementById("query").value
 
     var shouldBeAsync = true;
@@ -8,37 +48,36 @@ function doSubmit() {
 
     // What we will do when the server responds.
     request.onload = function () {
-        // You can get all kinds of information about the HTTP response.
-        var status = request.status; // HTTP response status, e.g., 200 for "200 OK"
-        var data = request.responseText; // Returned data, e.g., an HTML document.
+        if (request.status == 200) {
+            queue = JSON.parse(request.responseText);
+            updateList(queue);
+        }
     }
 
+    // Send POST request
     request.open(method, url, shouldBeAsync);
     request.setRequestHeader("Content-Type", "application/json");
     request.send(postData);
 }
 
 function onLoad() {
+    // Get and cache DOM elements
+    domCurrent = document.getElementById("current");
+    domTitle = document.getElementById("title");
+    domThumbnail = document.getElementById("thumbnail");
+    domNextTable = document.getElementById("next");
+    domForm = document.getElementById("search");
+
     // Replace form submit action to avoid reloading the page
-    var form = document.getElementById("search");
-    form.addEventListener('submit', function (e) {
+    domForm.addEventListener('submit', function (e) {
         e.preventDefault(); // Prevent submitting the form
-        doSubmit();
+        doSubmit(); // Invoke custom HTTP request
     });
 
     // Subscribe to server-sent song change events
     const evtSource = new EventSource("/changes");
     evtSource.onmessage = function(event) {
       // 'event.data' contains the new queue state
-      /*
-      const newElement = document.createElement("li");
-      const eventList = document.getElementById("list");
-
-      newElement.innerHTML = "message: " + event.data;
-      eventList.appendChild(newElement);
-      */
-
-      // FIXME For now just refresh the page to get it updated
-      location.reload()
+      updateList(event.data);
     }
 }

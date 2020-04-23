@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <meta charset="UTF-8">
         <title>Jukebox</title>
         <link rel="stylesheet" href="https://igoradamenko.github.io/awsm.css/css/awsm_theme_big-stone.min.css">
         <link rel="stylesheet" href="/assets/layout.css">
@@ -8,30 +9,29 @@
     </head>
     <body onload="onLoad()">
         <h1>Coronation Rd. Jukebox</h1>
-        <div class="current">
-            <h2>Now playing</h2>
-            {{#current}}
-            <div id="title"><p>{{title}}. {{uploader}}.</p></div>
-            <img id="thumbnail" width="30%" src="{{caption}}"/>
-            <p id="tags">{{#tags}}{{.}}{{#hasNext}}, {{/hasNext}}{{/tags}}</p>
-            {{/current}}
-        </div>
-        <div class="playlist">
-            <h2>Next</h2>
-            <table>
-                {{#next}}
-                <tr>
-                    <th>{{id}}</th>
-                    <th>{{title}}</th>
-                </tr>
-                {{/next}}
-            </table>
-        </div>
+        {{#mobile}}
+        I see you are using your phone.
+        {{/mobile}}
         <form id="search">
             <input type="text" id="query" name="query">
             <input type="submit" value="Queue">
         </form>
-        <ul id="list">
-        </ul>
+        <div id="current"{{^current}} class="undefined"{{/current}}>
+            <h2>Now playing</h2>
+            <div id="title">{{#current}}{{title}}{{/current}}</div>
+            <img id="thumbnail" width="30%" src="{{caption}}"/>
+        </div>
+        <div id="playlist"{{^next}} class="undefined"{{/next}}>
+            <h2>Next</h2>
+            <table id="next">
+                <tr><th>Id</th><th>Title</th></tr>
+                {{#next}}
+                <tr {{#isOdd}}class="odd"{{/isOdd}}{{^isOdd}}class="even"{{/isOdd}}>
+                    <td>{{id}}</td>
+                    <td>{{title}}</td>
+                </tr>
+                {{/next}}
+            </table>
+        </div>
     </body>
 </html>
