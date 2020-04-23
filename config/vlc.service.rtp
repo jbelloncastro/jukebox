@@ -1,0 +1,10 @@
+# Note: install in one of the following locations:
+# - ~/.config/sytemd/user/
+# - /usr/lib/systemd/user/
+[Unit]
+Description=VLC media player DBus activated service
+
+[Service]
+Type=dbus
+BusName=org.mpris.MediaPlayer2.vlc
+ExecStart=vlc --sout='#transcode{vcodec=none,acodec=mpga}:rtp{mux=ts,dst=239.255.12.42,sdp=sap,name="TestStream"}' --no-sout-all --sout-keep

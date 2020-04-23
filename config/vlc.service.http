@@ -1,0 +1,11 @@
+# Note: install in one of the following locations:
+# - ~/.config/sytemd/user/
+# - /usr/lib/systemd/user/
+[Unit]
+Description=VLC media player DBus activated service
+
+[Service]
+Type=dbus
+BusName=org.mpris.MediaPlayer2.vlc
+Environment="LD_LIBRARY_PATH=/home/jbellon/test/ytube-dl/vlc/install/usr/lib64"
+ExecStart=/home/jbellon/test/ytube-dl/vlc/install/usr/bin/vlc -I "dummy" --sout='#gather:transcode{vcodec=none,scodec=none,acodec=vorbis}:http{mux=ogg,dst=:8081/}' --no-sout-all --sout-keep
