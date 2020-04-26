@@ -1,2 +1,5 @@
-aiohttp>=3.6.2
-jeepney>=0.4.3
+aiohttp==3.6.2
+aiohttp-sse==2.0.0
+jeepney==0.4.3
+pystache==0.5.4
+youtube-dl==2020.3.24
