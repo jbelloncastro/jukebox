@@ -64,6 +64,12 @@ async def getRoot(request):
 
     state = queueState()
     state['mobile'] = isMobile
+
+    # Set 'coming next' elements queue position
+    pos = 2
+    for item in state.get('next',[]):
+        item.pos = pos
+        pos += 1
     text = render(state)
     return web.Response(text=text, content_type="text/html")
 

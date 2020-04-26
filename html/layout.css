@@ -1,17 +1,33 @@
-h2 {
-    vertical-align: middle;
-    height: 2em;
+body {
+    background-color: #364e59ff;
+    color: #dededeff;
+    font-size: large;
+}
+h1, h2 {
+    text-align: center;
+}
+.panel {
 }
 .undefined {
     display: none;
 }
-.current {
-    float: left;
-    margin-right: 1em;
+#mid-panel.div {
+    display: table-cell;
 }
-.playlist {
-    float: auto;
+#mid-panel {
+    width: 50%;
+    margin: 0 auto;
+}
+.form-item {
+    display: table-cell;
 }
 #thumbnail {
     width: 15em;
+}
+th, td {
+    text-align: left;
+    padding: 0 0 1em 2em;
+}
+tbody.nth-child(odd) {
+    background-color: #0e232eff;
 }

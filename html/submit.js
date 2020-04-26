@@ -20,12 +20,8 @@ function updateList(queue) {
         var j = -1;
         r[++j] = "<tr><th>Id</th><th>Title</th></tr>";
         for (var i=0; i < queue.next.length; i++){
-            if (i % 2 == 0) {
-                r[++j] = '<tr class="even"><td>';
-            } else {
-                r[++j] = '<tr class="odd"><td>';
-            }
-            r[++j] = i;
+            r[++j] = '<tr><td>';
+            r[++j] = i + 2; // start in 2 (1 is current)
             r[++j] = '</td><td>';
             r[++j] = queue.next[i].title;
             r[++j] = '</td></tr>';
