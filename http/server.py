@@ -49,25 +49,20 @@ def render(state):
         return renderer.render(page, state)
 
 def queueState():
-    state = {}
-    if len(queue.queue) > 0:
-        state["current"] = queue.queue[0]
-    if len(queue.queue) > 1:
-        state["next"] = queue.queue[1:]
-    return state
+    return queue.queue
 
 async def getRoot(request):
-    isMobile = False
-    agent = request.headers.get('User-agent', None)
-    if agent:
-        isMobile = 'Mobile' in agent
+    # isMobile = False
+    # agent = request.headers.get('User-agent', None)
+    # if agent:
+    #     isMobile = 'Mobile' in agent
 
     state = queueState()
-    state['mobile'] = isMobile
+    # state['mobile'] = isMobile
 
     # Set 'coming next' elements queue position
     pos = 2
-    for item in state.get('next',[]):
+    for item in state[1:]:
         item.pos = pos
         pos += 1
     text = render(state)

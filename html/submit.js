@@ -8,22 +8,22 @@ var domForm = null;
 // current and following variables
 // Assume all the dom elements have been queried (onLoad() was called)
 function updateList(queue) {
-    if (queue.current != null) {
-        domTitle.innerHTML = queue.current.title;
-        domThumbnail.src = queue.current.caption;
+    if (queue.length > 0 && queue[0] != null) {
+        domTitle.innerHTML = queue[0].title;
+        domThumbnail.src = queue[0].caption;
         domCurrent.classList.remove("undefined");
     } else {
         domCurrent.classList.add("undefined");
     }
-    if (queue.next != null) {
+    if (queue.length > 1) {
         var r = new Array();
         var j = -1;
         r[++j] = "<tr><th>Id</th><th>Title</th></tr>";
-        for (var i=0; i < queue.next.length; i++){
+        for (var i=1; i < queue.length; i++){
             r[++j] = '<tr><td>';
-            r[++j] = i + 2; // start in 2 (1 is current)
+            r[++j] = 1 + i; // start in 2 (1 is current)
             r[++j] = '</td><td>';
-            r[++j] = queue.next[i].title;
+            r[++j] = queue[i].title;
             r[++j] = '</td></tr>';
         }
         domNextTable.innerHTML = r.join('');
@@ -73,7 +73,7 @@ function onLoad() {
     // Subscribe to server-sent song change events
     const evtSource = new EventSource("/changes");
     evtSource.onmessage = function(event) {
-      // 'event.data' contains the new queue state
-      updateList(event.data);
+      queue = JSON.parse(event.data); // 'event.data' contains the new state
+      updateList(queue);
     }
 }

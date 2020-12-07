@@ -41,6 +41,9 @@ class Queue:
         # Clients subscribed to song change events
         self.listeners = set()
 
+    def notifyListChange(self):
+        return [client.put(self.queue) for client in self.listeners]
+
     async def addTrack(self, track):
         self.queue.append(track)
         self.hash.update(track.hash)
@@ -52,7 +55,10 @@ class Queue:
 
         trackIdTail = "/org/mpris/MediaPlayer2/TrackList/Append"
         addTrack = TrackList().AddTrack(track.url, trackIdTail, resume)
-        await self.protocol.send_message(addTrack)
+
+        sequence = self.notifyListChange()
+        sequence.append(self.protocol.send_message(addTrack))
+        await gather(*sequence)
         return self.queue
 
     def addListener(self, eventQueue):
@@ -118,5 +124,5 @@ class Queue:
             self.queue = list(it) # TODO: Update ETag hash
 
             # Notify clients of song changed event
-            await gather(*[client.put(self.queue) for client in self.listeners])
+            await gather(*self.notifyListChange())
 
