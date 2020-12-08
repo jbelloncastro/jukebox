@@ -7,6 +7,7 @@ import asyncio
 
 from jeepney.integrate.asyncio import connect_and_authenticate, Proxy
 
+from pathlib import Path
 import pystache
 
 import json
@@ -19,6 +20,7 @@ from functools import partial
 finder = None
 queue = None
 page = None
+pagefile = Path(__file__).parent/'../html/index.mustache'
 
 class TrackEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -43,7 +45,7 @@ async def initialize():
 
 def render(state):
     renderer = pystache.renderer.Renderer()
-    with open("../html/index.mustache", "r") as f:
+    with pagefile.open('r') as f:
         template = f.read()
         page = pystache.parse(template)
         return renderer.render(page, state)
