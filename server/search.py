@@ -1,7 +1,7 @@
 # Perform YouTube video searches
 from youtube_dl import YoutubeDL
 
-from .queue import Track
+from jukebox.server.tracklist import Track
 
 class YouTubeFinder:
     def __init__(self):

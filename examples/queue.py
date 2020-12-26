@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 from jeepney.integrate.blocking import connect_and_authenticate
 
-from jukebox.queue import Queue
+from jukebox.tracklist import Queue
 from jukebox.search import YouTubeFinder
 
 with connect_and_authenticate(bus="SESSION") as connection:

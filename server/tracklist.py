@@ -5,10 +5,10 @@ from jeepney.bus_messages import MatchRule, DBus
 
 import hashlib
 
-from jukebox.mpris import Player, TrackList
-from jukebox.mpris.properties import PlayerProperties, TrackListProperties
-from jukebox.mpris.track_metadata import parseTrackMetadata
-from jukebox.mpris.signals import PropertiesChanged
+from jukebox.dbus.org_mpris_MediaPlayer2 import Player, TrackList
+from jukebox.dbus.properties import PlayerProperties, TrackListProperties
+from jukebox.dbus.track_metadata import parseTrackMetadata
+from jukebox.dbus.signals import PropertiesChanged
 
 from functools import partial
 
