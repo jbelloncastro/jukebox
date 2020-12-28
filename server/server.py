@@ -98,7 +98,7 @@ class Server:
     async def getTracks(self, request):
         state = self.queueState()
         return json_response(data=state,
-                             headers={'ETag' : self.queue.hash.hexdigest()},
+                             headers={'ETag' : str(self.queue.uuid)},
                              dumps=encodeQueue)
     
     async def addTrack(self, request):

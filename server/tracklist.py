@@ -1,39 +1,33 @@
 from asyncio import get_event_loop, gather
 
+from functools import partial
+
+from itertools import dropwhile
+
 from jeepney.integrate.asyncio import Proxy
 from jeepney.bus_messages import MatchRule, DBus
-
-import hashlib
 
 from jukebox.dbus.org_mpris_MediaPlayer2 import Player, TrackList
 from jukebox.dbus.properties import PlayerProperties, TrackListProperties
 from jukebox.dbus.signals import PropertiesChanged
 from jukebox.server.track_metadata import parseTrackMetadata
 
-from functools import partial
-
-from itertools import dropwhile
-
-
-def hashUrl(url):
-    return hashlib.md5(str.encode(url)).digest()
-
+from uuid import uuid4
 
 class Track:
     def __init__(self, tid, title, caption, tags, url):
-        # Compute hash of stream url to identify track when song changes
-        self.hash = hashUrl(url)
-
         self.id = tid
         self.title = title
         self.caption = caption
         self.tags = tags
         self.url = url
 
+    def matchesUrl(self, url):
+        return self.url == url
 
 class Queue:
     def __init__(self, protocol):
-        self.hash = hashlib.sha1()
+        self.uuid = uuid4()
         self.protocol = protocol
 
         # List of tracks
@@ -42,12 +36,10 @@ class Queue:
         self.listeners = set()
 
     def notifyListChange(self):
+        self.uuid = uuid4()
         return [client.put(self.queue) for client in self.listeners]
 
     async def addTrack(self, track):
-        self.queue.append(track)
-        self.hash.update(track.hash)
-
         # Resume playing if necessary
         playerStatus = PlayerProperties().PlaybackStatus()
         status = await self.protocol.send_message(playerStatus)
@@ -56,6 +48,7 @@ class Queue:
         trackIdTail = "/org/mpris/MediaPlayer2/TrackList/Append"
         addTrack = TrackList().AddTrack(track.url, trackIdTail, resume)
 
+        self.queue.append(track)
         sequence = self.notifyListChange()
         sequence.append(self.protocol.send_message(addTrack))
         await gather(*sequence)
@@ -109,19 +102,14 @@ class Queue:
             self.queue = []
             return
 
-        changed = True
-        h = hashUrl(track.uri)
-        if len(self.queue) > 0:
-            changed = self.queue[0].hash != h
-
-        if changed:
-            print("Metadata URI hash: {}".format(h))
-            print("First queue song hash: {}".format(self.queue[0].hash))
+        songChanged = len(self.queue) == 0 or not self.queue[0].matchesUrl(track.uri)
+        if songChanged:
             print("Handle song changed: {}".format(metadata))
             # Remove all elements from queue until the current
-            mismatchCurrent = lambda x: x.hash != h
+            mismatchCurrent = lambda x: not x.matchesUrl(track.uri)
+
             it = dropwhile(mismatchCurrent, iter(self.queue))
-            self.queue = list(it)  # TODO: Update ETag hash
+            self.queue = list(it)
 
             # Notify clients of song changed event
             await gather(*self.notifyListChange())
