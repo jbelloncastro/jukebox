@@ -3,6 +3,7 @@ from youtube_dl import YoutubeDL
 
 from jukebox.server.tracklist import Track
 
+
 class YouTubeFinder:
     def __init__(self):
         self.query_format = "ytsearch1:{}"
@@ -24,10 +25,12 @@ class YouTubeFinder:
         result = results["entries"][0]
         selected = max(result["formats"], key=audioBitrate)
 
+        "If media is fragmented, we must use 'fragment_base_url' instead of 'url'"
+        url_key = "url"
+        if len(selected["fragments"]) > 0:
+            url_key = "fragment_base_url"
+        url = selected[url_key]
+
         return Track(
-            result["id"],
-            result["title"],
-            result["thumbnail"],
-            result["tags"],
-            selected["url"],
+            result["id"], result["title"], result["thumbnail"], result["tags"], url,
         )

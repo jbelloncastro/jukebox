@@ -5,11 +5,10 @@ from jeepney.bus_messages import MatchRule, message_bus
 from jeepney.integrate.blocking import Proxy
 
 from jukebox.dbus.org_mpris_MediaPlayer2 import Player, TrackList
-
 from jukebox.signals import PropertiesChanged, TrackAdded
 from jukebox.properties import TrackListProperties
+from jukebox.server.track_metadata import parseTrackMetadata
 
-from jukebox.track_metadata import parseTrackMetadata
 
 class PlayStatusListener:
     " Try to track when VLC changes song, starts and stops playing"

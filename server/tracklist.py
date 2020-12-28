@@ -7,8 +7,8 @@ import hashlib
 
 from jukebox.dbus.org_mpris_MediaPlayer2 import Player, TrackList
 from jukebox.dbus.properties import PlayerProperties, TrackListProperties
-from jukebox.dbus.track_metadata import parseTrackMetadata
 from jukebox.dbus.signals import PropertiesChanged
+from jukebox.server.track_metadata import parseTrackMetadata
 
 from functools import partial
 
@@ -91,7 +91,7 @@ class Queue:
         """
         interface, changed, invalidated = signalData
         loop = get_event_loop()
-        for name, variant in changed:
+        for name, variant in changed.items():
             if name == "Metadata":
                 typename, value = variant
                 loop.create_task(self.handleSongChanged(value))
@@ -121,7 +121,7 @@ class Queue:
             # Remove all elements from queue until the current
             mismatchCurrent = lambda x: x.hash != h
             it = dropwhile(mismatchCurrent, iter(self.queue))
-            self.queue = list(it) # TODO: Update ETag hash
+            self.queue = list(it)  # TODO: Update ETag hash
 
             # Notify clients of song changed event
             await gather(*self.notifyListChange())
