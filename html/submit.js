@@ -74,6 +74,7 @@ function onLoad() {
     const evtSource = new EventSource("/changes");
     evtSource.onmessage = function(event) {
       queue = JSON.parse(event.data); // 'event.data' contains the new state
-      updateList(queue);
+      etag = queue.etag;
+      updateList(queue.tracks);
     }
 }

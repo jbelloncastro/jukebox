@@ -12,28 +12,16 @@ import pystache
 
 import json
 
-from jukebox.server.tracklist import Queue, Track
+from jukebox.server.tracklist import Queue, Track, TrackEncoder
 from jukebox.server.search import YouTubeFinder
 
 from functools import partial
 
-class TrackEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Track):
-            return {
-                    'id' : obj.id,
-                    'title' : obj.title,
-                    'caption' : obj.caption
-                    }
-        return super().default(obj)
-
-def encodeQueue(queue):
-    return json.dumps(queue, cls=TrackEncoder)
 
 class Server:
-    rootdir = Path(__file__).parent / '..'
-    assetsdir = rootdir / 'html'
-    pagefile = assetsdir / 'index.mustache'
+    rootdir = Path(__file__).parent / ".."
+    assetsdir = rootdir / "html"
+    pagefile = assetsdir / "index.mustache"
 
     def __init__(self, aioloop, host, port):
         self.aioloop = aioloop
@@ -69,23 +57,23 @@ class Server:
 
     def render(self, state):
         renderer = pystache.renderer.Renderer()
-        with Server.pagefile.open('r') as f:
+        with Server.pagefile.open("r") as f:
             template = f.read()
             page = pystache.parse(template)
             return renderer.render(page, state)
-    
+
     def queueState(self):
         return self.queue.queue
-    
+
     async def getRoot(self, request):
         # isMobile = False
         # agent = request.headers.get('User-agent', None)
         # if agent:
         #     isMobile = 'Mobile' in agent
-    
+
         state = self.queueState()
         # state['mobile'] = isMobile
-    
+
         # Set 'coming next' elements queue position
         pos = 2
         for item in state[1:]:
@@ -93,32 +81,34 @@ class Server:
             pos += 1
         text = self.render(state)
         return web.Response(text=text, content_type="text/html")
-    
-    
+
     async def getTracks(self, request):
         state = self.queueState()
-        return json_response(data=state,
-                             headers={'ETag' : str(self.queue.uuid)},
-                             dumps=encodeQueue)
-    
+        return json_response(
+            data=state,
+            headers={"ETag": str(self.queue.uuid)},
+            dumps=lambda d: json.dumps(d, cls=TrackEncoder),
+        )
+
     async def addTrack(self, request):
         query = await request.text()
         if not query:
             return web.HTTPBadRequest(text="Illegal search query")
-    
+
         result = self.finder.search(query)
         await self.queue.addTrack(result)
-    
+
         return await self.getTracks(request)
-    
+
     async def notifyChange(self, request):
         async with sse_response(request) as response:
             events = asyncio.Queue()
             self.queue.addListener(events)
+            response.content_type = "application/json"
             try:
                 while not response.task.done():
-                    payload = encodeQueue(await events.get())
-                    await response.send(payload)
+                    payload = await events.get()
+                    await response.send(json.dumps(payload, cls=TrackEncoder))
                     events.task_done()
             finally:
                 self.queue.removeListener(events)
@@ -130,6 +120,7 @@ def main_func():
     server = Server(loop, "0.0.0.0", "8080")
     server.start()
     server.run()
+
 
 if __name__ == "__main__":
     main_func()

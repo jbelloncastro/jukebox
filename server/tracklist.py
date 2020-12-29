@@ -12,7 +12,10 @@ from jukebox.dbus.properties import PlayerProperties, TrackListProperties
 from jukebox.dbus.signals import PropertiesChanged
 from jukebox.server.track_metadata import parseTrackMetadata
 
+from json import JSONEncoder
+
 from uuid import uuid4
+
 
 class Track:
     def __init__(self, tid, title, caption, tags, url):
@@ -25,6 +28,13 @@ class Track:
     def matchesUrl(self, url):
         return self.url == url
 
+
+class QueueState:
+    def __init__(self, queue):
+        self.tracks = queue.queue
+        self.etag = str(queue.uuid.hex)
+
+
 class Queue:
     def __init__(self, protocol):
         self.uuid = uuid4()
@@ -36,8 +46,11 @@ class Queue:
         self.listeners = set()
 
     def notifyListChange(self):
+        # Regenerate etag
         self.uuid = uuid4()
-        return [client.put(self.queue) for client in self.listeners]
+
+        state = QueueState(self)
+        return [client.put(state) for client in self.listeners]
 
     async def addTrack(self, track):
         # Resume playing if necessary
@@ -113,4 +126,13 @@ class Queue:
 
             # Notify clients of song changed event
             await gather(*self.notifyListChange())
+
+
+class TrackEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Track):
+            return {"id": obj.id, "title": obj.title, "caption": obj.caption}
+        if isinstance(obj, QueueState):
+            return {"etag": str(obj.etag), "tracks": obj.tracks}
+        return super().default(obj)
 
