@@ -27,7 +27,8 @@ class YouTubeFinder:
 
         "If media is fragmented, we must use 'fragment_base_url' instead of 'url'"
         url_key = "url"
-        if len(selected["fragments"]) > 0:
+        fragments = selected.get("fragments", [])
+        if len(fragments) > 0:
             url_key = "fragment_base_url"
         url = selected[url_key]
 
