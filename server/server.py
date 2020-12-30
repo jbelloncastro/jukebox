@@ -43,6 +43,7 @@ class Server:
                 web.get("/", lambda req: self.getRoot(req)),
                 web.get("/tracks", lambda req: self.getTracks(req)),
                 web.post("/tracks", lambda req: self.addTrack(req)),
+                web.delete("/tracks/{track_id}", lambda req: self.removeTrack(req)),
                 web.get("/changes", lambda req: self.notifyChange(req)),
                 web.static("/assets", Server.assetsdir),
             ]
@@ -108,6 +109,14 @@ class Server:
         await self.queue.addTrack(result)
 
         return await self.getTracks(request)
+
+    async def removeTrack(self, request):
+        try:
+            track_id = int(request.match_info['track_id'])
+            await self.queue.removeTrack(track_id)
+        except ValueError:
+            return web.Response(status=400, body="Invalid track id")
+        return web.Response(status=200)
 
     async def notifyChange(self, request):
         async with sse_response(request) as response:

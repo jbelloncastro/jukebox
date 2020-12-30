@@ -67,6 +67,21 @@ class Queue:
         await gather(*sequence)
         return self.queue
 
+    async def removeTrack(self, track_id):
+        print("Remove track: {}".format(track_id))
+        if track_id == 0 and len(self.queue) > 0:
+            self.queue = self.queue[1:]
+            nextTrack = Player().Next()
+            sequence = self.notifyListChange()
+            sequence.append(self.protocol.send_message(nextTrack))
+            await gather(*sequence)
+        # if track_id < len(self.queue):
+        #     del self.queue[track_id]
+        #     # TODO: We must update the tracklist in the media player too!
+        #     await gather(*self.notifyListChange())
+        else:
+            raise ValueError()
+
     def addListener(self, eventQueue):
         self.listeners.add(eventQueue)
 
