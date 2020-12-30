@@ -41,14 +41,14 @@ class TrackAdded(MatchRule):
 
     def __init__(
         self,
-        # object_path='/org/mpris/MediaPlayer2',
+        object_path='/org/mpris/MediaPlayer2',
         bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
             sender="org.mpris.MediaPlayer2.vlc",
             interface=PropertiesChanged.interface,
-            # path=object_path,
+            path=object_path,
             member="TrackAdded",
         )
 

@@ -5,8 +5,6 @@ from aiohttp_sse import EventSourceResponse, sse_response
 
 import asyncio
 
-from jeepney.integrate.asyncio import connect_and_authenticate, Proxy
-
 from pathlib import Path
 import pystache
 
@@ -52,10 +50,7 @@ class Server:
 
     async def start(self):
         # Setup DBus connection and server-sent-event queue
-        (_, protocol) = await connect_and_authenticate(bus="SESSION")
-        queue = Queue(protocol)
-        await queue.registerHandler()
-        self.queue = queue
+        self.queue = await Queue.create()
 
         await self.runner.setup()
         site = web.TCPSite(self.runner, self.host, self.port)
@@ -80,10 +75,10 @@ class Server:
         #     isMobile = 'Mobile' in agent
 
         state = {}
-        if len(self.queue.queue) > 0:
-            state['current'] = self.queue.queue[0]
-        if len(self.queue.queue) > 1:
-            state['next'] = self.queue.queue[1:]
+        if len(self.queue.tracks) > 0:
+            state['current'] = self.queue.tracks[0]
+        if len(self.queue.tracks) > 1:
+            state['next'] = self.queue.tracks[1:]
             # Set queue position
             for pos, item in zip(count(2), state['next']):
                 item.pos = pos
@@ -95,7 +90,7 @@ class Server:
 
     async def getTracks(self, request):
         return json_response(
-            data=self.queue.queue,
+            data=self.queue.tracks,
             headers={"ETag": str(self.queue.uuid)},
             dumps=lambda d: json.dumps(d, cls=TrackEncoder),
         )
@@ -141,8 +136,8 @@ def main_func():
         loop.add_signal_handler(s, lambda: loop.stop())
 
     server = Server("0.0.0.0", "8080")
-    loop.create_task(server.start())
     try:
+        loop.create_task(server.start())
         print("Running. Press Ctrl-C to exit.")
         loop.run_forever()
     finally:
