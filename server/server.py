@@ -17,22 +17,27 @@ from jukebox.server.search import YouTubeFinder
 
 from functools import partial
 
+import signal
+
 
 class Server:
     rootdir = Path(__file__).parent / ".."
     assetsdir = rootdir / "html"
     pagefile = assetsdir / "index.mustache"
 
-    def __init__(self, aioloop, host, port):
-        self.aioloop = aioloop
+    def __init__(self, host, port):
         self.host = host
         self.port = port
 
+        # Performs video searches on YouTube
         self.finder = YouTubeFinder()
+
+        # List of tracks and DBus communication with media player
         self.queue = None
 
-        self.app = web.Application()
-        self.app.add_routes(
+        # Web application server
+        app = web.Application()
+        app.add_routes(
             [
                 web.get("/", lambda req: self.getRoot(req)),
                 web.get("/tracks", lambda req: self.getTracks(req)),
@@ -41,19 +46,22 @@ class Server:
                 web.static("/assets", Server.assetsdir),
             ]
         )
+        self.runner = web.AppRunner(app)
 
-    def start(self):
-        async def init(server):
-            "Hides initialization function from Server interface"
-            (_, protocol) = await connect_and_authenticate(bus="SESSION")
-            queue = Queue(protocol)
-            await queue.registerHandler()
-            server.queue = queue
+    async def start(self):
+        # Setup DBus connection and server-sent-event queue
+        (_, protocol) = await connect_and_authenticate(bus="SESSION")
+        queue = Queue(protocol)
+        await queue.registerHandler()
+        self.queue = queue
 
-        self.aioloop.run_until_complete(init(self))
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, self.host, self.port)
+        await site.start()
 
-    def run(self):
-        web.run_app(self.app, host=self.host, port=self.port)
+    async def stop(self):
+        await self.queue.cleanup()
+        await self.runner.cleanup()
 
     def render(self, state):
         renderer = pystache.renderer.Renderer()
@@ -106,10 +114,11 @@ class Server:
             self.queue.addListener(events)
             response.content_type = "application/json"
             try:
-                while not response.task.done():
-                    payload = await events.get()
+                payload = await events.get()
+                while not response.task.done() and payload:
                     await response.send(json.dumps(payload, cls=TrackEncoder))
                     events.task_done()
+                    payload = await events.get()
             finally:
                 self.queue.removeListener(events)
         return response
@@ -117,9 +126,17 @@ class Server:
 
 def main_func():
     loop = asyncio.get_event_loop()
-    server = Server(loop, "0.0.0.0", "8080")
-    server.start()
-    server.run()
+    for s in {signal.SIGINT, signal.SIGTERM}:
+        loop.add_signal_handler(s, lambda: loop.stop())
+
+    server = Server("0.0.0.0", "8080")
+    loop.create_task(server.start())
+    try:
+        print("Running. Press Ctrl-C to exit.")
+        loop.run_forever()
+    finally:
+        print("Exiting...")
+        loop.run_until_complete(server.stop())
 
 
 if __name__ == "__main__":

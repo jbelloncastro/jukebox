@@ -73,6 +73,9 @@ class Queue:
     def removeListener(self, eventQueue):
         self.listeners.remove(eventQueue)
 
+    async def cleanup(self):
+        await gather(*[l.put(None) for l in self.listeners])
+
     async def registerHandler(self):
         # Subscribe to /org/mpris/MediaPlayer2/Metadata property changes,
         # which mean the song has changed
