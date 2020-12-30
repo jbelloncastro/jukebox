@@ -31,7 +31,7 @@ class Track:
 
 class QueueState:
     def __init__(self, queue):
-        self.tracks = queue.queue
+        self.tracks = queue.queue.copy()
         self.etag = str(queue.uuid.hex)
 
 

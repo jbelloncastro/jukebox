@@ -19,6 +19,7 @@ from functools import partial
 
 import signal
 
+from itertools import count
 
 class Server:
     rootdir = Path(__file__).parent / ".."
@@ -68,10 +69,8 @@ class Server:
         with Server.pagefile.open("r") as f:
             template = f.read()
             page = pystache.parse(template)
-            return renderer.render(page, state)
-
-    def queueState(self):
-        return self.queue.queue
+            result = renderer.render(page, state)
+            return result
 
     async def getRoot(self, request):
         # isMobile = False
@@ -79,21 +78,23 @@ class Server:
         # if agent:
         #     isMobile = 'Mobile' in agent
 
-        state = self.queueState()
+        state = {}
+        if len(self.queue.queue) > 0:
+            state['current'] = self.queue.queue[0]
+        if len(self.queue.queue) > 1:
+            state['next'] = self.queue.queue[1:]
+            # Set queue position
+            for pos, item in zip(count(2), state['next']):
+                item.pos = pos
+
         # state['mobile'] = isMobile
 
-        # Set 'coming next' elements queue position
-        pos = 2
-        for item in state[1:]:
-            item.pos = pos
-            pos += 1
         text = self.render(state)
         return web.Response(text=text, content_type="text/html")
 
     async def getTracks(self, request):
-        state = self.queueState()
         return json_response(
-            data=state,
+            data=self.queue.queue,
             headers={"ETag": str(self.queue.uuid)},
             dumps=lambda d: json.dumps(d, cls=TrackEncoder),
         )
@@ -116,7 +117,8 @@ class Server:
             try:
                 payload = await events.get()
                 while not response.task.done() and payload:
-                    await response.send(json.dumps(payload, cls=TrackEncoder))
+                    body = json.dumps(payload, cls=TrackEncoder)
+                    await response.send(body)
                     events.task_done()
                     payload = await events.get()
             finally:
