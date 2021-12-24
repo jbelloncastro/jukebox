@@ -5,8 +5,9 @@ from aiohttp_sse import EventSourceResponse, sse_response
 
 import asyncio
 
-from pathlib import Path
-import pystache
+from concurrent.futures import ThreadPoolExecutor
+
+from itertools import count
 
 import json
 
@@ -15,9 +16,10 @@ from jukebox.server.search import YouTubeFinder
 
 from functools import partial
 
-import signal
+from pathlib import Path
+import pystache
 
-from itertools import count
+import signal
 
 class Server:
     rootdir = Path(__file__).parent / ".."
@@ -47,6 +49,12 @@ class Server:
             ]
         )
         self.runner = web.AppRunner(app)
+
+        # Will be used to process search requests in the background
+        # Make sure each worker thread has an event loop
+        self.pool = ThreadPoolExecutor(initializer=lambda:
+                asyncio.set_event_loop(asyncio.new_event_loop())
+                )
 
     async def start(self):
         # Setup DBus connection and server-sent-event queue
@@ -96,13 +104,19 @@ class Server:
         )
 
     async def addTrack(self, request):
-        query = await request.text()
-        if not query:
-            return web.HTTPBadRequest(text="Illegal search query")
+        def queryInBackground(self, request):
+            # This is run in a different thread
+            loop = asyncio.get_event_loop()
+            query = loop.run_until_complete(request.text())
+            if not query:
+                return web.HTTPBadRequest(text="Illegal search query")
+            print("Run background")
+            return self.finder.search(query)
 
-        result = self.finder.search(query)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(self.pool, queryInBackground, self, request)
+
         await self.queue.addTrack(result)
-
         return await self.getTracks(request)
 
     async def removeTrack(self, request):

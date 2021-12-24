@@ -4,6 +4,10 @@ from youtube_dl import YoutubeDL
 from jukebox.server.tracklist import Track
 
 
+class SearchError(Exception):
+    def __init__(self):
+        pass
+
 class YouTubeFinder:
     def __init__(self):
         self.query_format = "ytsearch1:{}"
@@ -22,10 +26,15 @@ class YouTubeFinder:
 
         query = self.query_format.format(query)
         results = self.downloader.extract_info(query, False)
-        result = results["entries"][0]
+        results = results.get("entries", list())
+        if len(results) == 0:
+            raise SearchError()
+        else:
+            result = results[0]
+
         selected = max(result["formats"], key=audioBitrate)
 
-        "If media is fragmented, we must use 'fragment_base_url' instead of 'url'"
+        # If media is fragmented, we must use 'fragment_base_url' instead of 'url'
         url_key = "url"
         fragments = selected.get("fragments", [])
         if len(fragments) > 0:

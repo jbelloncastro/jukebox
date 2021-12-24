@@ -124,9 +124,10 @@ class Queue:
         self.listeners.remove(eventQueue)
 
     async def cleanup(self):
-        self.listeners.extend(l.put(None) for l in self.listeners)
-        await asyncio.gather(*self.listeners)
-        self.listeners = []
+        self.tasks.extend(l.put(None) for l in self.listeners)
+        await asyncio.gather(*self.tasks)
+        self.listeners = set()
+        self.tasks = []
 
     async def registerHandler(self):
         async def handleEvent(rule, callback):
