@@ -17,14 +17,15 @@ from jukebox.server.search import YouTubeFinder
 from functools import partial
 
 from pathlib import Path
-import pystache
+
+import jinja2
 
 import signal
 
 class Server:
     rootdir = Path(__file__).parent / ".."
     assetsdir = rootdir / "html"
-    pagefile = assetsdir / "index.mustache"
+    pagefile = "index.template"
 
     def __init__(self, host, port):
         self.host = host
@@ -56,6 +57,13 @@ class Server:
                 asyncio.set_event_loop(asyncio.new_event_loop())
                 )
 
+        template_dir = ""
+        self.env = jinja2.Environment(
+                        loader=jinja2.FileSystemLoader(searchpath=Server.assetsdir),
+                        trim_blocks=True,
+                        lstrip_blocks=True)
+        self.template = self.env.get_template(Server.pagefile)
+
     async def start(self):
         # Setup DBus connection and server-sent-event queue
         self.queue = await Queue.create()
@@ -69,12 +77,9 @@ class Server:
         await self.runner.cleanup()
 
     def render(self, state):
-        renderer = pystache.renderer.Renderer()
-        with Server.pagefile.open("r") as f:
-            template = f.read()
-            page = pystache.parse(template)
-            result = renderer.render(page, state)
-            return result
+        return self.template.render(current=state.get('current', None),
+                                    next=state.get('next', list()),
+                                    mobile=state.get('isMobile', False))
 
     async def getRoot(self, request):
         # isMobile = False
@@ -143,21 +148,21 @@ class Server:
                 self.queue.removeListener(events)
         return response
 
+    @classmethod
+    def run(address="0.0.0.0", port=8080):
+        loop = asyncio.get_event_loop()
+        for s in {signal.SIGINT, signal.SIGTERM}:
+            loop.add_signal_handler(s, lambda: loop.stop())
 
-def main_func():
-    loop = asyncio.get_event_loop()
-    for s in {signal.SIGINT, signal.SIGTERM}:
-        loop.add_signal_handler(s, lambda: loop.stop())
-
-    server = Server("0.0.0.0", "8080")
-    try:
-        loop.create_task(server.start())
-        print("Running. Press Ctrl-C to exit.")
-        loop.run_forever()
-    finally:
-        print("Exiting...")
-        loop.run_until_complete(server.stop())
+        server = Server("0.0.0.0", str(port))
+        try:
+            loop.create_task(server.start())
+            print("Running. Press Ctrl-C to exit.")
+            loop.run_forever()
+        finally:
+            print("Exiting...")
+            loop.run_until_complete(server.stop())
 
 
 if __name__ == "__main__":
-    main_func()
+    Server.run()

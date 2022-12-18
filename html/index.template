@@ -10,28 +10,28 @@
         <div>
             <div id="mid-panel" class="panel">
                 <h1>Coronation Rd. Jukebox</h1>
-                {{#mobile}}
+                {% if mobile %}
                 I see you are using your phone.
-                {{/mobile}}
+                {% endif %}
                 <form id="search">
                     <input type="text" id="query" name="query">
                     <input type="submit" value="Queue">
                 </form>
-                <div id="current"{{^current}} class="undefined"{{/current}}>
+                <div id="current"{% if not current %} class="undefined"{% endif %}>
                     <h2>Now playing</h2>
-                    <div id="title">{{#current}}{{title}}{{/current}}</div>
-                    <img id="thumbnail" width="30%" src="{{#current}}{{caption}}{{/current}}"/>
+                    <div id="title">{% if current %}{{current.title}}{% endif %}</div>
+                    <img id="thumbnail" width="30%" src="{%if current %}{{current.caption}}{% endif %}"/>
                 </div>
-                <div id="playlist"{{^next}} class="undefined"{{/next}}>
+                <div id="playlist"{% if not next %} class="undefined"{% endif %}>
                     <h2>Coming next</h2>
                     <table id="next">
                         <tr><th>#</th><th>Title</th></tr>
-                        {{#next}}
+                        {% for track in next %}
                         <tr>
-                            <td>{{pos}}</td>
-                            <td>{{title}}</td>
+                            <td>{{track.pos}}</td>
+                            <td>{{track.title}}</td>
                         </tr>
-                        {{/next}}
+                        {% endfor %}
                     </table>
                 </div>
             </div>
