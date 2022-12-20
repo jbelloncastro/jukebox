@@ -11,7 +11,7 @@ from itertools import count
 
 import json
 
-from jukebox.server.tracklist import Queue, Track, TrackEncoder
+from jukebox.server.tracklist import Queue, QueueState, Track, TrackEncoder
 from jukebox.server.search import YouTubeFinder
 
 from functools import partial
@@ -87,24 +87,26 @@ class Server:
         # if agent:
         #     isMobile = 'Mobile' in agent
 
-        state = {}
-        if len(self.queue.tracks) > 0:
-            state['current'] = self.queue.tracks[0]
-        if len(self.queue.tracks) > 1:
-            state['next'] = self.queue.tracks[1:]
+        state = QueueState(self.queue)
+        result = {}
+        if len(state.tracks) > 0:
+            result['current'] = state.tracks[0]
+        if len(state.tracks) > 1:
+            result['next'] = state.tracks[1:]
             # Set queue position
             for pos, item in zip(count(2), state['next']):
                 item.pos = pos
 
         # state['mobile'] = isMobile
 
-        text = self.render(state)
+        text = self.render(result)
         return web.Response(text=text, content_type="text/html")
 
     async def getTracks(self, request):
+        state = QueueState(self.queue)
         return json_response(
-            data=self.queue.tracks,
-            headers={"ETag": str(self.queue.uuid)},
+            data=state.tracks,
+            headers={"ETag": state.etag},
             dumps=lambda d: json.dumps(d, cls=TrackEncoder),
         )
 
@@ -146,6 +148,7 @@ class Server:
                     payload = await events.get()
             finally:
                 self.queue.removeListener(events)
+                response.stop_streaming()
         return response
 
     @classmethod

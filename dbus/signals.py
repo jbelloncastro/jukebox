@@ -85,3 +85,20 @@ class TrackMetadataChanged(MatchRule):
             path=object_path,
             member="TrackMetadataChanged",
         )
+
+
+class Seeked(MatchRule):
+    interface = "org.mpris.MediaPlayer2.TrackList"
+
+    def __init__(
+        self,
+        object_path="/org/mpris/MediaPlayer2",
+        bus_name="org.mpris.MediaPlayer2.vlc",
+    ):
+        super().__init__(
+            type="signal",
+            sender="org.mpris.MediaPlayer2.vlc",
+            interface=PropertiesChanged.interface,
+            path=object_path,
+            member="Seeked",
+        )

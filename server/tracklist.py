@@ -1,7 +1,7 @@
 import asyncio
 
+from collections import deque
 from functools import partial
-
 from itertools import dropwhile
 
 from jeepney.io.asyncio import open_dbus_connection, DBusRouter, Proxy
@@ -9,12 +9,51 @@ from jeepney.bus_messages import MatchRule, DBus
 from jeepney.wrappers import Properties
 
 from jukebox.dbus.org_mpris_MediaPlayer2 import Player, TrackList
-from jukebox.dbus.signals import PropertiesChanged, TrackAdded, TrackRemoved, TrackListReplaced
+from jukebox.dbus.signals import PropertiesChanged, TrackAdded, TrackRemoved, TrackListReplaced, Seeked
 from jukebox.server.track_metadata import parseTrackMetadata
 
 from json import JSONEncoder
 
 from uuid import uuid4
+
+def zip_equal(iterable1, iterable2):
+    """
+    Example logic:
+    a = range(3)
+    b = range(1, 5)
+    zip_equal(a, b)
+    > (0, None)
+    > (1, 1)
+    > (2, 2)
+    > (None, 3)
+    > (None, 4)
+    """
+    it1 = iter(iterable1)
+    it2 = iter(iterable2)
+    a, b = (None, None)
+    try:
+        a = next(it1)
+        b = next(it2)
+        while True:
+            if a != b:
+                yield(a, None)
+                a = next(it1)
+            else:
+                yield (a, b)
+                a = next(it1)
+                b = next(it2)
+    except StopIteration:
+        pass
+    finally:
+        del it1
+    # it1 is exhausted
+    try:
+        if a != b:
+                yield (None, b)
+        for b in it2:
+                yield (None, b)
+    finally:
+        del it2
 
 
 class Track:
@@ -24,7 +63,6 @@ class Track:
         self.caption = caption
         self.tags = tags
         self.url = url
-        self.playerTrackId = None
 
     def matchesUrl(self, url):
         return self.url == url
@@ -32,7 +70,7 @@ class Track:
 
 class QueueState:
     def __init__(self, queue):
-        self.tracks = queue.tracks.copy()
+        self.tracks = list(queue.tracks[trackId] for trackId in queue.tracklist)
         self.etag = str(queue.uuid.hex)
 
 
@@ -40,8 +78,13 @@ class Queue:
     def __init__(self, connection):
         self.uuid = uuid4()
 
-        # List of tracks
-        self.tracks = []
+        # Map of tracks by player trackid
+        self.tracks = {}
+        # List of tracks in media player
+        self.tracklist = []
+        # List of tracks pending to add to queue
+        self.pending = deque()
+
         # Clients subscribed to song change events
         self.listeners = set()
         # Event handlers
@@ -65,8 +108,24 @@ class Queue:
 
         # Read tracklist again to match player's track id with our tracklist
         properties = Proxy(Properties(TrackList()), self.router)
-        tracks = await properties.get("Tracks")
-        print("Tracklist has changed: {}".format(repr(tracks)))
+        response = await properties.get("Tracks")
+        signature, updatedList = response[0]
+        print(f"Tracklist has changed: {response}")
+        if signature != 'ao':
+            raise ValueError(f"Expected Tracks property signature of 'ao'. Got '{signature}' instead")
+
+        # Drop tracks that are no longer being played and
+        # add tracks that were not previously queued
+        for oldId, newId in zip_equal(self.tracklist, updatedList):
+            if not newId:
+                # Track was removed
+                self.tracks.pop(oldId)
+            if not oldId:
+                # Track was added
+                print(f"Track was added: {newId}")
+                self.tracks[newId] = self.pending.popleft()
+
+        self.tracklist = updatedList
 
         # Notify subscribers with new tracklist
         state = QueueState(self)
@@ -77,21 +136,24 @@ class Queue:
 
         # Resume playing if necessary
         properties = Proxy(Properties(Player()), self.router)
-        status = await properties.get("PlaybackStatus")
-        resume = status[0] == ("s", "Stopped")
+        response = await properties.get("PlaybackStatus")
+        signature, status = response[0]
+        resume = (signature, status) == ("s", "Stopped")
 
-        self.tracks.append(track)
+        self.pending.append(track)
 
         tracklist = Proxy(TrackList(), self.router)
         message = tracklist.AddTrack(track.url, trackIdTail, resume)
         await self.notifyListChange(message)
         return self.tracks
 
-    async def removeTrack(self, track_id):
+    async def removeTrack(self, index):
         print("Remove track: {}".format(track_id))
         player = Proxy(Player(), self.router)
-        if track_id == 0 and len(self.tracks) > 0:
-            self.tracks = self.tracks[1:]
+        if index == 0 and len(self.tracklist) > 0:
+            track_id = self.tracklist[track_index]
+            self.trackslist = self.tracks[1:]
+            self.tracks.pop(track_id)
 
             message = player.Next()
             await self.notifyListChange(message)
@@ -124,6 +186,10 @@ class Queue:
         self.listeners.remove(eventQueue)
 
     async def cleanup(self):
+        # DBusRouter class assumes use as context manager
+        async with self.router as _:
+            for t in self.tasks:
+                t.cancel("Cleanup")
         self.tasks.extend(l.put(None) for l in self.listeners)
         await asyncio.gather(*self.tasks)
         self.listeners = set()
@@ -134,9 +200,12 @@ class Queue:
             subscribed = await Proxy(DBus(), self.router).AddMatch(rule) == ()
             if not subscribed:
                 raise RuntimeError("Could not register matching rule")
-
             with self.router.filter(rule) as eventQueue:
-                callback(await eventQueue.get())
+                try:
+                    value = await eventQueue.get()
+                    callback(value)
+                except asyncio.CancelledError:
+                    pass
 
         # Subscribe to /org/mpris/MediaPlayer2/Metadata property changes,
         # which mean the song has changed
@@ -152,9 +221,15 @@ class Queue:
         task = asyncio.create_task(handleEvent(rule, lambda: print("TrackListReplaced signal")))
         self.tasks.append(task)
 
+        # Ignore MediaPlayer2.Player.Seeked signal
+        rule = Seeked()
+        rule.add_arg_condition(0, Player().interface, "string")
+        task = asyncio.create_task(handleEvent(rule, lambda: None))
+        self.tasks.append(task)
+
         # Print a message whenever an unhandled signal arrives
         rule = MatchRule(path=Player().object_path, type="signal")
-        task = asyncio.create_task(handleEvent(rule, lambda msg: print("Signal unhandled")))
+        task = asyncio.create_task(handleEvent(rule, lambda msg: print(f"Signal unhandled:\n{msg}")))
         self.tasks.append(task)
 
     def handlePlayerPropertiesChanged(self, signalData):
@@ -178,17 +253,18 @@ class Queue:
 
         # Metadata's URI will be None if there is no more songs to play
         if not track.uri:
-            self.tracks = []
+            self.tracklist = []
+            self.tracks = {}
+            self.pending = deque()
             return
 
-        songChanged = len(self.tracks) == 0 or not self.tracks[0].matchesUrl(track.uri)
+        songChanged = len(self.tracklist) == 0 or not self.tracks(self.tracklist[0]).matchesUrl(track.uri)
         if songChanged:
             print("Handle song changed: {}".format(metadata))
             # Remove all elements from queue until the current
-            mismatchCurrent = lambda x: not x.matchesUrl(track.uri)
+            mismatchCurrent = lambda x: not self.tracks[x].matchesUrl(track.uri)
 
-            it = dropwhile(mismatchCurrent, iter(self.tracks))
-            self.tracks = list(it)
+            self.tracklist = list(dropwhile(mismatchCurrent, self.tracklist))
 
             # Notify clients of song changed event
             await self.notifyListChange()
