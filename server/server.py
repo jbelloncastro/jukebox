@@ -112,7 +112,7 @@ class Server:
             loop = asyncio.get_event_loop()
             query = loop.run_until_complete(request.text())
             if not query:
-                return web.HTTPBadRequest(text="Illegal search query")
+                raise web.HTTPBadRequest(text="Illegal search query")
             print("Run background")
             return self.finder.search(query)
 
@@ -135,7 +135,7 @@ class Server:
             async with sse_response(request) as response, self.queue.createListener() as events:
                 response.content_type = "application/json"
                 # Returns None when the server is shutting down
-                while payload := await events.get() != None:
+                while (payload := await events.get()) != None:
                     body = json.dumps(payload, cls=TrackEncoder)
                     await response.send(body)
                     events.task_done()

@@ -64,10 +64,7 @@ class Track:
         self.caption = caption
         self.tags = tags
         self.url = url
-
-    def matchesUrl(self, url):
-        return self.url == url
-
+        self.tracklist_id = None
 
 class QueueState:
     def __init__(self, queue):
@@ -86,6 +83,7 @@ class Queue:
         # Map of tracks by player trackid
         self.tracks = {}
         # List of tracks in media player
+        self.tracklist_lock = asyncio.Lock()
         self.tracklist = []
         self.playing = -1
         # List of tracks pending to add to queue
@@ -105,50 +103,52 @@ class Queue:
         return Proxy(generator, self.router)
 
     async def notifyListChange(self):
-        # Read tracklist again to match player's track id with our tracklist
-        properties = self.instanceProxy(Properties(TrackList()))
-        response = await properties.get("Tracks")
-        signature, tracks = response[0]
-        print("Tracklist is now: {}".format(repr(tracks)))
-
+        # TODO: move this to server.py
         # Notify subscribers with new tracklist
         state = QueueState(self)
+        print("Put in listeners: {}".format([t.title for t in self.tracklist]))
         await asyncio.gather(*[client.put(state) for client in self.listeners])
 
     async def addTrack(self, track):
-        trackIdTail = "/org/mpris/MediaPlayer2/TrackList/Append"
+        async with self.tracklist_lock:
+            # Regenerate etag
+            self.uuid = uuid4()
+            self.tracklist.append(track)
 
-        # Resume playing if necessary
-        properties = self.instanceProxy(Properties(Player()))
-        response = await properties.get("PlaybackStatus")
+            # Check if player is stopped. Resume playing if necessary
+            properties = self.instanceProxy(Properties(Player()))
+            response = await properties.get("PlaybackStatus")
+            signature, status = response[0]
 
-        signature, status = response[0]
-        resume = (signature, status) == ("s", "Stopped")
+            tracklist = self.instanceProxy(TrackList())
+            trackIdTail = "/org/mpris/MediaPlayer2/TrackList/Append"
+            resume = (signature, status) == ("s", "Stopped")
+            await tracklist.AddTrack(track.url, trackIdTail, resume)
 
-        self.tracklist.append(track)
+            # Read tracklist again to match player's track id with our tracklist
+            properties = self.instanceProxy(Properties(TrackList()))
+            response = await properties.get("Tracks")
+            signature, tracks = response[0]
+            print("Tracklist is now: {}".format(repr(tracks)))
 
-        # Regenerate etag
-        self.uuid = uuid4()
-
-        tracklist = self.instanceProxy(TrackList())
-        await tracklist.AddTrack(track.url, trackIdTail, resume)
-
+            track.tracklist_id = tracks[-1]
+        print("Send notification change!")
         await self.notifyListChange()
 
     async def removeTrack(self, index):
-        print("Remove track: {}".format(track_id))
+        print("Remove track: {}".format(index))
         if index == 0 and len(self.tracklist) > 0:
-            # Regenerate etag
-            self.uuid = uuid4()
+            async with self.tracklist_lock:
+                # Regenerate etag
+                self.uuid = uuid4()
 
-            self.trackslist = self.tracks[1:]
+                self.trackslist = self.tracks[1:]
 
-            player = self.instanceProxy(Player())
-            await player.Next()
-
+                player = self.instanceProxy(Player())
+                await player.Next()
             await self.notifyListChange()
         else:
-            raise ValueError()
+            raise ValueError("Can only remove the first track in the list")
 
     @asynccontextmanager
     async def createListener(self):
@@ -232,31 +232,39 @@ class Queue:
             if name == "Metadata":
                 typename, value = variant
                 asyncio.create_task(self.handleSongChanged(value))
-                return
+            elif name == "PlaybackStatus":
+                pass
+            elif name == "CanGoNext":
+                pass
 
     async def handleSongChanged(self, metadata):
         track = TrackMetadata.fromMPRISMetadata(metadata)
-        print(f"handleSongChanged\n{track}")
+        print(f"handleSongChanged: id:{track.tracklist_id}; uri:{track.uri}; length:{track.length}")
         # Network streams have unknown length until they start buffering
         # There might be multiple PropertiesChanged signal for the same
         # song, therefore a song only changes if the uri does not match with
         # the first song in the queue
 
-        # Metadata's URI will be None if there is no more songs to play
-        if not track.uri:
-            self.tracklist = []
-            self.tracks = {}
-            self.pending = deque()
-            return
+        songChanged = False
+        async with self.tracklist_lock:
+            # Metadata's URI will be None if there is no more songs to play
+            if not track.uri:
+                self.tracklist = []
+                self.tracks = {}
+                self.pending = deque()
+                return
 
-        songChanged = len(self.tracklist) == 0 or not self.tracklist[0].matchesUrl(track.uri)
+            songChanged = len(self.tracklist) == 0 or self.tracklist[0].tracklist_id != track.tracklist_id
+            if songChanged:
+                print("Handle song changed. Current: {}; List: {}".format(
+                                track.tracklist_id,
+                                [t.tracklist_id for t in self.tracklist]))
+                # Remove all elements from queue until the current
+                mismatchCurrent = lambda t: t.tracklist_id != track.tracklist_id
+
+                self.tracklist = list(dropwhile(mismatchCurrent, self.tracklist))
+
         if songChanged:
-            print("Handle song changed: {}".format(track))
-            # Remove all elements from queue until the current
-            mismatchCurrent = lambda t: not t.matchesUrl(track.uri)
-
-            self.tracklist = list(dropwhile(mismatchCurrent, self.tracklist))
-
             # Notify clients of song changed event
             await self.notifyListChange()
 

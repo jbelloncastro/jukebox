@@ -22,7 +22,9 @@ class YouTubeFinder:
 
         def audioBitrate(f):
             "Sorts by audio bitrate prioritizing audio-only results"
-            return f["abr"] if f["vcodec"] == "none" else 0
+            bitrate = f.get("abr", 0)
+            isVideo = f.get("vcodec", "none") != "none"
+            return (0 if isVideo else 1, bitrate)
 
         query = self.query_format.format(query)
         results = self.downloader.extract_info(query, False)

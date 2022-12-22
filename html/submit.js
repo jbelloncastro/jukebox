@@ -42,26 +42,23 @@ function updateList(queue) {
 function doSubmit() {
     var url = "/tracks";
     var method = "POST";
-    // FIXME: add quotes for a valid json string
-    var postData = document.getElementById("query").value
+    var postData = '"' + document.getElementById("query").value + '"';
     if (postData.length == 0)
         return;
 
-    var shouldBeAsync = true;
-    var request = new XMLHttpRequest();
-
-    // What we will do when the server responds.
-    request.onload = function () {
-        if (request.status == 200) {
-            queue = JSON.parse(request.responseText);
-            updateList(queue);
-        }
-    }
-
     // Send POST request
-    request.open(method, url, shouldBeAsync);
-    request.setRequestHeader("Content-Type", "application/json");
-    request.send(postData);
+    fetch(url, {
+        "method": "POST",
+        "headers": new Headers({"Content-Type": "application/json"}),
+        "body": postData
+    }).then((response) => {
+        if (response.ok)
+            return response.json();
+        else
+            throw response;
+    }).then((json) => {
+        updateList(json);
+    });
 }
 
 function onLoad() {

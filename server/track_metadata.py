@@ -1,8 +1,8 @@
 class TrackMetadata:
     "VLC track metadata"
 
-    def __init__(self, trackId, uri, length):
-        self.trackId = (trackId,)
+    def __init__(self, tracklist_id, uri, length):
+        self.tracklist_id = tracklist_id
         self.uri = uri
         self.length = length
 
