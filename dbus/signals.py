@@ -4,101 +4,107 @@ from jeepney.bus_messages import MatchRule
 
 class PropertiesChanged(MatchRule):
     interface = "org.freedesktop.DBus.Properties"
+    member = "PropertiesChanged"
 
     def __init__(
         self,
+        sender=None,
         object_path="/org/mpris/MediaPlayer2",
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
-            interface=PropertiesChanged.interface,
+            sender=sender,
+            interface=self.interface,
             path=object_path,
-            member="PropertiesChanged",
+            member=self.member,
         )
 
 
 class TrackListReplaced(MatchRule):
     interface = "org.mpris.MediaPlayer2.TrackList"
+    member = "TrackListReplaced"
 
     def __init__(
         self,
+        sender=None,
         object_path="/org/mpris/MediaPlayer2",
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
-            interface=PropertiesChanged.interface,
+            sender=sender,
+            interface=self.interface,
             path=object_path,
-            member="TrackListReplaced",
+            member=self.member,
         )
 
 
 class TrackAdded(MatchRule):
     interface = "org.mpris.MediaPlayer2.TrackList"
+    member = "TrackAdded"
 
     def __init__(
         self,
+        sender=None,
         object_path='/org/mpris/MediaPlayer2',
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
+            sender=sender,
             interface=PropertiesChanged.interface,
             path=object_path,
-            member="TrackAdded",
+            member=self.member,
         )
 
 
 class TrackRemoved(MatchRule):
     interface = "org.mpris.MediaPlayer2.TrackList"
+    member = "TrackRemoved"
 
     def __init__(
         self,
+        sender=None,
         object_path="/org/mpris/MediaPlayer2",
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
+            sender=sender,
             interface=PropertiesChanged.interface,
             path=object_path,
-            member="TrackRemoved",
+            member=self.member,
         )
 
 
 class TrackMetadataChanged(MatchRule):
     interface = "org.mpris.MediaPlayer2.TrackList"
+    member = "TrackMetadataChanged"
 
     def __init__(
         self,
+        sender=None,
         object_path="/org/mpris/MediaPlayer2",
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
+            sender=sender,
             interface=PropertiesChanged.interface,
             path=object_path,
-            member="TrackMetadataChanged",
+            member=self.member,
         )
 
 
 class Seeked(MatchRule):
     interface = "org.mpris.MediaPlayer2.TrackList"
+    member = "Seeked"
 
     def __init__(
         self,
+        sender=None,
         object_path="/org/mpris/MediaPlayer2",
-        bus_name="org.mpris.MediaPlayer2.vlc",
     ):
         super().__init__(
             type="signal",
-            sender="org.mpris.MediaPlayer2.vlc",
-            interface=PropertiesChanged.interface,
+            sender=sender,
+            interface=Seeked.interface,
             path=object_path,
-            member="Seeked",
+            member=self.member,
         )

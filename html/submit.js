@@ -16,17 +16,23 @@ function updateList(queue) {
         domCurrent.classList.add("undefined");
     }
     if (queue.length > 1) {
-        var r = new Array();
         var j = -1;
-        r[++j] = "<tr><th>Id</th><th>Title</th></tr>";
+        let rows = Array.from(domNextTable.getElementsByClassName("track"));
+        rows.forEach(e => domNextTable.removeChild(e));
         for (var i=1; i < queue.length; i++){
-            r[++j] = '<tr><td>';
-            r[++j] = 1 + i; // start in 2 (1 is current)
-            r[++j] = '</td><td>';
-            r[++j] = queue[i].title;
-            r[++j] = '</td></tr>';
+            let row = document.createElement("tr");
+            let trackId = document.createElement("td");
+            let trackTitle = document.createElement("td");
+
+            trackId.append(1 + i); // start in 2 (1 is current)
+            trackTitle.append(queue[i].title);
+
+            row.classList.add("track");
+            row.append(trackTitle);
+            row.appendChild(trackId);
+            row.appendChild(trackTitle);
+            domNextTable.appendChild(row);
         }
-        domNextTable.innerHTML = r.join('');
         playlist.classList.remove("undefined");
     } else {
         playlist.classList.add("undefined");
@@ -38,6 +44,8 @@ function doSubmit() {
     var method = "POST";
     // FIXME: add quotes for a valid json string
     var postData = document.getElementById("query").value
+    if (postData.length == 0)
+        return;
 
     var shouldBeAsync = true;
     var request = new XMLHttpRequest();

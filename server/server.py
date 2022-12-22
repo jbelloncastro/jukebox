@@ -6,6 +6,7 @@ from aiohttp_sse import EventSourceResponse, sse_response
 import asyncio
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 
 from itertools import count
 
@@ -20,14 +21,12 @@ from pathlib import Path
 
 import jinja2
 
-import signal
-
 class Server:
     rootdir = Path(__file__).parent / ".."
     assetsdir = rootdir / "html"
     pagefile = "index.template"
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, queue):
         self.host = host
         self.port = port
 
@@ -35,7 +34,7 @@ class Server:
         self.finder = YouTubeFinder()
 
         # List of tracks and DBus communication with media player
-        self.queue = None
+        self.queue = queue
 
         # Web application server
         app = web.Application()
@@ -65,9 +64,6 @@ class Server:
         self.template = self.env.get_template(Server.pagefile)
 
     async def start(self):
-        # Setup DBus connection and server-sent-event queue
-        self.queue = await Queue.create()
-
         await self.runner.setup()
         site = web.TCPSite(self.runner, self.host, self.port)
         await site.start()
@@ -94,7 +90,7 @@ class Server:
         if len(state.tracks) > 1:
             result['next'] = state.tracks[1:]
             # Set queue position
-            for pos, item in zip(count(2), state['next']):
+            for pos, item in zip(count(2), result['next']):
                 item.pos = pos
 
         # state['mobile'] = isMobile
@@ -135,37 +131,14 @@ class Server:
         return web.Response(status=200)
 
     async def notifyChange(self, request):
-        async with sse_response(request) as response:
-            events = asyncio.Queue()
-            self.queue.addListener(events)
-            response.content_type = "application/json"
-            try:
-                payload = await events.get()
-                while not response.task.done() and payload:
+        with suppress(ConnectionResetError):
+            async with sse_response(request) as response, self.queue.createListener() as events:
+                response.content_type = "application/json"
+                # Returns None when the server is shutting down
+                while payload := await events.get() != None:
                     body = json.dumps(payload, cls=TrackEncoder)
                     await response.send(body)
                     events.task_done()
-                    payload = await events.get()
-            finally:
-                self.queue.removeListener(events)
-                response.stop_streaming()
+                events.task_done()
         return response
 
-    @classmethod
-    def run(address="0.0.0.0", port=8080):
-        loop = asyncio.get_event_loop()
-        for s in {signal.SIGINT, signal.SIGTERM}:
-            loop.add_signal_handler(s, lambda: loop.stop())
-
-        server = Server("0.0.0.0", str(port))
-        try:
-            loop.create_task(server.start())
-            print("Running. Press Ctrl-C to exit.")
-            loop.run_forever()
-        finally:
-            print("Exiting...")
-            loop.run_until_complete(server.stop())
-
-
-if __name__ == "__main__":
-    Server.run()

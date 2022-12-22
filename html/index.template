@@ -9,10 +9,7 @@
     <body onload="onLoad()">
         <div>
             <div id="mid-panel" class="panel">
-                <h1>Coronation Rd. Jukebox</h1>
-                {% if mobile %}
-                I see you are using your phone.
-                {% endif %}
+                <h1>Collaborative Jukebox</h1>
                 <form id="search">
                     <input type="text" id="query" name="query">
                     <input type="submit" value="Queue">
@@ -27,7 +24,7 @@
                     <table id="next">
                         <tr><th>#</th><th>Title</th></tr>
                         {% for track in next %}
-                        <tr>
+                        <tr class="track">
                             <td>{{track.pos}}</td>
                             <td>{{track.title}}</td>
                         </tr>
