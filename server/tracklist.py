@@ -102,10 +102,8 @@ class Queue:
         generator.bus_name = self.bus
         return Proxy(generator, self.router)
 
-    async def notifyListChange(self):
-        # TODO: move this to server.py
+    async def notifyListChange(self, state :QueueState):
         # Notify subscribers with new tracklist
-        state = QueueState(self)
         print("Put in listeners: {}".format([t.title for t in self.tracklist]))
         await asyncio.gather(*[client.put(state) for client in self.listeners])
 
@@ -126,14 +124,18 @@ class Queue:
             await tracklist.AddTrack(track.url, trackIdTail, resume)
 
             # Read tracklist again to match player's track id with our tracklist
+            # TODO: would be a good idea to wait for PropertiesChanged signal.
+            # Must make sure we guarantee the order of track additions such
+            # that appending two tracks concurrently returns the right result.
             properties = self.instanceProxy(Properties(TrackList()))
             response = await properties.get("Tracks")
             signature, tracks = response[0]
             print("Tracklist is now: {}".format(repr(tracks)))
 
             track.tracklist_id = tracks[-1]
+            state = QueueState(self)
         print("Send notification change!")
-        await self.notifyListChange()
+        await self.notifyListChange(state)
 
     async def removeTrack(self, index):
         print("Remove track: {}".format(index))
@@ -146,7 +148,9 @@ class Queue:
 
                 player = self.instanceProxy(Player())
                 await player.Next()
-            await self.notifyListChange()
+
+                state = QueueState(self)
+            await self.notifyListChange(state)
         else:
             raise ValueError("Can only remove the first track in the list")
 
@@ -228,45 +232,58 @@ class Queue:
         assert signalMessage.header.fields[HeaderFields.signature] == 'sa{sv}as'
 
         interface, changed, invalidated = signalMessage.body
-        for name, variant in changed.items():
-            if name == "Metadata":
-                typename, value = variant
-                asyncio.create_task(self.handleSongChanged(value))
-            elif name == "PlaybackStatus":
-                pass
-            elif name == "CanGoNext":
-                pass
+        # We expect the properties to always be located in 'changed' map,
+        # not in the 'invalidated' list.
+        assert all(i not in invalidated for i in ['PlaybackStatus', 'Metadata', 'CanGoNext'])
+
+        if (variant := changed.get("PlaybackStatus",None)) is not None \
+           and variant == ('s', 'Stopped'):
+            # Player reached the end of the tracklist
+            # There should not be a new song to play
+            assert "Metadata" not in changed
+            asyncio.create_task(self.handleSongChanged(None))
+        elif (variant := changed.get("Metadata", None)) is not None:
+            # A song has changed
+            typename, value = variant
+            asyncio.create_task(self.handleSongChanged(value))
+
+        if (variant := changed.get("CanGoNext", None)) is not None \
+           and variant == ('b', False):
+            # We are now playing the last song in the queue
+            # This does not trigger if this is the first song being played
+            pass
+
 
     async def handleSongChanged(self, metadata):
-        track = TrackMetadata.fromMPRISMetadata(metadata)
-        print(f"handleSongChanged: id:{track.tracklist_id}; uri:{track.uri}; length:{track.length}")
         # Network streams have unknown length until they start buffering
         # There might be multiple PropertiesChanged signal for the same
         # song, therefore a song only changes if the uri does not match with
         # the first song in the queue
 
-        songChanged = False
+        state = None
         async with self.tracklist_lock:
-            # Metadata's URI will be None if there is no more songs to play
-            if not track.uri:
+            # Metadata is None when there isn't any more songs to play
+            if not metadata:
                 self.tracklist = []
                 self.tracks = {}
                 self.pending = deque()
-                return
+                state = QueueState(self)
+            else:
+                track = TrackMetadata.fromMPRISMetadata(metadata)
+                songChanged = not self.tracklist or self.tracklist[0].tracklist_id != track.tracklist_id
+                if songChanged:
+                    print("Handle song changed. Current: {}; List: {}".format(
+                                    track.tracklist_id,
+                                    [t.tracklist_id for t in self.tracklist]))
+                    # Remove all elements from queue until the current
+                    mismatchCurrent = lambda t: t.tracklist_id != track.tracklist_id
 
-            songChanged = len(self.tracklist) == 0 or self.tracklist[0].tracklist_id != track.tracklist_id
-            if songChanged:
-                print("Handle song changed. Current: {}; List: {}".format(
-                                track.tracklist_id,
-                                [t.tracklist_id for t in self.tracklist]))
-                # Remove all elements from queue until the current
-                mismatchCurrent = lambda t: t.tracklist_id != track.tracklist_id
+                    self.tracklist = list(dropwhile(mismatchCurrent, self.tracklist))
+                    state = QueueState(self)
 
-                self.tracklist = list(dropwhile(mismatchCurrent, self.tracklist))
-
-        if songChanged:
+        if state:
             # Notify clients of song changed event
-            await self.notifyListChange()
+            await self.notifyListChange(state)
 
 
 class TrackEncoder(JSONEncoder):
