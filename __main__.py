@@ -3,12 +3,14 @@ import asyncio
 import signal
 
 from .dbus.org_freedesktop_DBus import DBus
+from .dbus.signals import NameOwnerChanged
 
 from .server.server import Server
 from .server.tracklist import Queue
 
-from jeepney.io.asyncio import Proxy
+from jeepney import DBusErrorResponse
 from jeepney.io.asyncio import  open_dbus_router
+from jeepney.io.asyncio import Proxy
 
 async def main():
     address="0.0.0.0"
@@ -21,10 +23,23 @@ async def main():
 
     async with open_dbus_router() as dbusRouter:
         # Pick first VLC instance we see
-        response = await Proxy(DBus(), dbusRouter).ListQueuedOwners('org.mpris.MediaPlayer2.vlc')
-        vlcInstances = response[0]
-        if not vlcInstances:
-            raise RuntimeError("VLC is not running")
+        dbusProxy = Proxy(DBus(), dbusRouter)
+
+        rule = NameOwnerChanged()
+        rule.add_arg_condition(0, 'org.mpris.MediaPlayer2.vlc')
+
+        with dbusRouter.filter(rule) as queue:
+            subscribed = await Proxy(DBus(), dbusRouter).AddMatch(rule.serialise()) == ()
+            assert subscribed
+            try:
+                response = await dbusProxy.ListQueuedOwners('org.mpris.MediaPlayer2.vlc')
+                vlcInstances, = response.body
+            except DBusErrorResponse as error:
+                if error.name != 'org.freedesktop.DBus.Error.NameHasNoOwner':
+                    raise error
+                message = await queue.get()
+                name, oldOwner, newOwner = message.body
+                vlcInstances = [newOwner]
 
         tracklist = Queue(dbusRouter, vlcInstances[0])
         server = Server(address, str(port), tracklist)

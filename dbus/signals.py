@@ -108,3 +108,21 @@ class Seeked(MatchRule):
             path=object_path,
             member=self.member,
         )
+
+
+class NameOwnerChanged(MatchRule):
+    interface = "org.freedesktop.DBus"
+    member = "NameOwnerChanged"
+
+    def __init__(
+        self,
+        sender=None,
+        object_path="/org/freedesktop/DBus",
+    ):
+        super().__init__(
+            type="signal",
+            sender=sender,
+            interface=self.interface,
+            path=object_path,
+            member=self.member,
+        )
