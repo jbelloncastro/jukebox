@@ -1,5 +1,5 @@
 # Perform YouTube video searches
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 from jukebox.server.tracklist import Track
 
@@ -23,6 +23,7 @@ class YouTubeFinder:
         def audioBitrate(f):
             "Sorts by audio bitrate prioritizing audio-only results"
             bitrate = f.get("abr", 0)
+            bitrate = 0 if bitrate is None else bitrate # Sometimes 'abr' key exists and it is null
             isVideo = f.get("vcodec", "none") != "none"
             return (0 if isVideo else 1, bitrate)
 

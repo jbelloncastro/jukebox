@@ -238,9 +238,11 @@ class Queue:
 
         if (variant := changed.get("PlaybackStatus",None)) is not None \
            and variant == ('s', 'Stopped'):
-            # Player reached the end of the tracklist
-            # There should not be a new song to play
-            assert "Metadata" not in changed
+            # Player stopped after reaching the end of the tracklist or was told to do so.
+            # There should not be a new song to play, but VLC player still forwards all state (including current song) even if unchanged.
+
+            # assert "Metadata" not in changed
+
             asyncio.create_task(self.handleSongChanged(None))
         elif (variant := changed.get("Metadata", None)) is not None:
             # A song has changed
