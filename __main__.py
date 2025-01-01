@@ -1,6 +1,7 @@
 
 import argparse
 import asyncio
+import re
 import signal
 import sys
 
@@ -33,7 +34,7 @@ async def main(address, port, bus_name):
         # When the bus name is not org.mpris.MediaPlayer2.vlc, waiting for activation is not likely going to work,
         # since the first name depends on the process PID and whether or not there are multiple instances active.
         rule = NameOwnerChanged()
-        rule.add_arg_condition(0, bus_name)
+        rule.add_arg_condition(0, bus_name or "org.mpris.MediaPlayer2.vlc")
 
         vlcInstances = []
         with dbusRouter.filter(rule) as queue:
@@ -44,7 +45,10 @@ async def main(address, port, bus_name):
             # However, vlc does not queue bus name reservation but instead creates unique bus names for each instance.
             # Therefore, we need to list all bus names and filter them by name.
             response, = await dbusProxy.ListNames()
-            vlcInstances = list(instance for instance in response if instance.startswith(bus_name))
+            if bus_name is None:
+                vlcInstances = [instance for instance in response if instance.startswith("org.mpris.MediaPlayer2.vlc")]
+            else:
+                vlcInstances = [bus_name] if bus_name in response else []
 
             if not vlcInstances:
                 # Wait for first instance to start or for a stop request
@@ -77,7 +81,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(prog="jukebox", description="Stream music from a web media service on demand")
     parser.add_argument("http_server_address", nargs="?", help="address and port pair to listen for HTTP connections (default: 'localhost:8080')", default="localhost:8080")
-    parser.add_argument("-b", "--bus_name", help="media player bus name (default: 'org.mpris.MediaPlayer2.vlc')", default="org.mpris.MediaPlayer2.vlc")
+    parser.add_argument("-b", "--bus_name", help="media player bus name (default: any)", default=None)
 
     args = parser.parse_args()
 
