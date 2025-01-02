@@ -20,6 +20,7 @@ from functools import partial
 from pathlib import Path
 
 import jinja2
+import os
 
 class Server:
     rootdir = Path(__file__).parent / ".."
@@ -61,7 +62,15 @@ class Server:
                         loader=jinja2.FileSystemLoader(searchpath=Server.assetsdir),
                         trim_blocks=True,
                         lstrip_blocks=True)
-        self.template = self.env.get_template(Server.pagefile)
+
+        self.template_mtime = 0
+        self.reload_template()
+
+    def reload_template(self):
+        curr_mtime = os.stat(Server.assetsdir / Server.pagefile).st_mtime
+        if self.template_mtime < curr_mtime:
+            self.template_mtime = curr_mtime
+            self.template = self.env.get_template(Server.pagefile)
 
     async def start(self):
         await self.runner.setup()
@@ -73,6 +82,7 @@ class Server:
         await self.runner.cleanup()
 
     def render(self, state):
+        self.reload_template()
         return self.template.render(current=state.get('current', None),
                                     next=state.get('next', list()),
                                     mobile=state.get('isMobile', False))

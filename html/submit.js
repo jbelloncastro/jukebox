@@ -1,7 +1,7 @@
 var domCurrent = null;
 var domTitle = null;
 var domThumbnail = null;
-var domNextTable = null;
+var domNextList = null;
 var domForm = null;
 
 // Resets #current and #playlist div elements with the latest values of
@@ -17,21 +17,22 @@ function updateList(queue) {
     }
     if (queue.length > 1) {
         var j = -1;
-        let rows = Array.from(domNextTable.getElementsByClassName("track"));
-        rows.forEach(e => domNextTable.removeChild(e));
+        let tracks = Array.from(domNextList.querySelectorAll("li"));
+        tracks.forEach(e => domNextList.removeChild(e));
         for (var i=1; i < queue.length; i++){
-            let row = document.createElement("tr");
-            let trackId = document.createElement("td");
-            let trackTitle = document.createElement("td");
+            let item = document.createElement("li");
+            let trackId = document.createElement("span");
+            let trackTitle = document.createElement("span");
 
             trackId.append(1 + i); // start in 2 (1 is current)
             trackTitle.append(queue[i].title);
 
-            row.classList.add("track");
-            row.append(trackTitle);
-            row.appendChild(trackId);
-            row.appendChild(trackTitle);
-            domNextTable.appendChild(row);
+            trackTitle.classList.add("track-title");
+            trackId.classList.add("track-no");
+
+            item.appendChild(trackId);
+            item.appendChild(trackTitle);
+            domNextList.appendChild(item);
         }
         playlist.classList.remove("undefined");
     } else {
@@ -64,9 +65,9 @@ function doSubmit() {
 function onLoad() {
     // Get and cache DOM elements
     domCurrent = document.getElementById("current");
-    domTitle = document.getElementById("title");
-    domThumbnail = document.getElementById("thumbnail");
-    domNextTable = document.getElementById("next");
+    domTitle = document.querySelector("#current .track-title");
+    domThumbnail = document.querySelector("#current img");
+    domNextList = document.querySelector("#playlist ul");
     domForm = document.getElementById("search");
 
     // Replace form submit action to avoid reloading the page
