@@ -193,8 +193,8 @@ class Queue:
         allSubscribed = []
         # Subscribe to /org/mpris/MediaPlayer2/Metadata property changes,
         # which mean the song has changed
-        rule = PropertiesChanged(sender=self.bus)
-        # rule.add_arg_condition(0, Player().interface, "string")
+        rule = PropertiesChanged(object_path='/org/mpris/MediaPlayer2')
+        rule.add_arg_condition(0, Player().interface, "string")
         allSubscribed.append(
                 handleEvent(rule, self.handlePlayerPropertiesChanged))
 
