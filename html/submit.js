@@ -23,10 +23,7 @@ function updateList(queue) {
         for (var i=1; i < queue.length; i++){
             let item = domListTemplate.content.cloneNode(true);
 
-            let trackId, trackTitle;
-            [trackNo, trackTitle] = item.querySelectorAll("span");
-
-            trackNo.textContent = 1 + i; // start in 2 (1 is current)
+            let trackTitle = item.querySelector("span");
             trackTitle.textContent = queue[i].title;
 
             newList.push(item);

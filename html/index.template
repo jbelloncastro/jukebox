@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width">
         <title>Jukebox</title>
         <link rel="stylesheet" href="/assets/layout.css">
         <script type="text/javascript" src="/assets/submit.js"></script>
@@ -12,8 +13,10 @@
             <div id="mid-panel" class="panel">
                 <form id="search">
                     <label for="query">Search your favourite song and press 'Queue'</label>
-                    <input type="text" id="query" name="query">
-                    <input type="submit" value="Queue">
+                    <div>
+                        <input type="text" id="query" name="query">
+                        <input type="submit" value="Queue">
+                    </div>
                 </form>
                 <h2>Now playing</h2>
                 <div id="current"{% if not current %} class="undefined"{% endif %}>
@@ -21,17 +24,15 @@
                     <span class="track-title">{% if current %}{{current.title}}{% endif %}</span>
                 </div>
                 <h2>Coming next</h2>
-                <ul id="playlist"{% if not next %} class="undefined"{% endif %}>
+                <ol start="2" id="playlist"{% if not next %} class="undefined"{% endif %}>
                         {% for track in next %}
                         <li>
-                            <span class="track-no">{{track.pos}}</span>
                             <span class="track-title">{{track.title}}</span>
                         </li>
                         {% endfor %}
                 </ul>
                 <template id="playlist-entry">
                     <li>
-                        <span class="track-no"></span>
                         <span class="track-title"></span>
                     </li>
                 </template>

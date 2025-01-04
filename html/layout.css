@@ -1,7 +1,10 @@
 body {
+    --main-color: #F0F4EF;
+    --main-bg-color: #0D1821;
+    --panel-bg-color: #344966;
     font-family: sans-serif;
-    background-color: #364e59ff;
-    color: #dededeff;
+    background-color: var(--main-bg-color);
+    color: var(--main-color);
     font-size: large;
 }
 
@@ -9,15 +12,8 @@ h1, h2 {
     text-align: center;
 }
 
-.panel {
-}
-
 .undefined {
-    display: none;
-}
-
-#mid-panel.div {
-    display: table-cell;
+    display: none !important;
 }
 
 #mid-panel {
@@ -32,49 +28,76 @@ label {
 }
 
 #search {
-    margin: auto;
     width: fit-content;
+    display: flex;
+    flex-direction: column;
+    margin: auto;
+}
+
+#search * {
+    margin: auto;
 }
 
 .form-item {
     display: table-cell;
 }
 
-#current {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
+@media only screen and (orientation: portrait) {
+    #current {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+    #current img {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    #current .track-title {
+        padding: 10px;
+    }
+}
+
+@media only screen and (orientation: landscape) {
+    #current {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    #current .track-title {
+        padding: 20px;
+    }
 }
 
 #current img {
     width: 15em;
 }
 
-#current .track-title {
-    padding: 20px;
-}
-
-#playlist {
-    background-color: #555;
+#current, #playlist {
+    background-color: var(--panel-bg-color);
     padding: 10px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 #playlist {
-    list-style: none;
-    padding: 0 15px 0 15px;
     margin: 0;
+    counter-reset: trackno 1;
+    padding: 0 10px 0 30px;
 }
 
 #playlist li {
     padding: 10px;
     border-bottom: 1px solid;
+    counter-increment: trackno 1;
 }
 
-.track-no {
-    padding-right: 10px 0 10px 0;
+#playlist li::marker {
+    content: counter(trackno) " ";
     color: #aaa;
+    font-size: larger;
+    font-weight: bold;
 }
 
 #playlist li:last-of-type {
