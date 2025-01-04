@@ -50,7 +50,7 @@ class TrackAdded(MatchRule):
         super().__init__(
             type="signal",
             sender=sender,
-            interface=PropertiesChanged.interface,
+            interface=self.interface,
             path=object_path,
             member=self.member,
         )

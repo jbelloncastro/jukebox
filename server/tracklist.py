@@ -87,7 +87,7 @@ class Queue:
         self.tracklist = []
         self.playing = -1
         # List of tracks pending to add to queue
-        self.pending = deque()
+        self.pending = []
 
         # Clients subscribed to song change events
         self.listeners = set()
@@ -111,9 +111,10 @@ class Queue:
         async with self.tracklist_lock:
             # Regenerate etag
             self.uuid = uuid4()
-            self.tracklist.append(track)
+            self.pending.append(track)
 
             # Check if player is stopped. Resume playing if necessary
+            # TODO: do this only during initialisation, then subscribe for signal for changes
             properties = self.instanceProxy(Properties(Player()))
             response = await properties.get("PlaybackStatus")
             signature, status = response[0]
@@ -123,19 +124,7 @@ class Queue:
             resume = (signature, status) == ("s", "Stopped")
             await tracklist.AddTrack(track.url, trackIdTail, resume)
 
-            # Read tracklist again to match player's track id with our tracklist
-            # TODO: would be a good idea to wait for PropertiesChanged signal.
-            # Must make sure we guarantee the order of track additions such
-            # that appending two tracks concurrently returns the right result.
-            properties = self.instanceProxy(Properties(TrackList()))
-            response = await properties.get("Tracks")
-            signature, tracks = response[0]
-            print("Tracklist is now: {}".format(repr(tracks)))
-
-            track.tracklist_id = tracks[-1]
-            state = QueueState(self)
-        print("Send notification change!")
-        await self.notifyListChange(state)
+            # Tracklist will be read again upon arrival of TrackAdded signal
 
     async def removeTrack(self, index):
         print("Remove track: {}".format(index))
@@ -165,6 +154,8 @@ class Queue:
 
     async def cleanup(self):
         self.handlers.cancel("Cleanup")
+        # Send None to signal we are shutting down.
+        # Starting with python 3.13, we can use Queue.shutdown instead
         await asyncio.gather(*[t for queue in self.listeners
                                     for t in [queue.put(None), queue.join()]])
         self.tasks = []
@@ -200,10 +191,9 @@ class Queue:
 
         # Subscribe to TrackListReplaced signal
         # which mean a song was added or removed
-        # rule = TrackAdded()
-        # rule.add_arg_condition(0, Player().interface, "string")
-        # handlers.create_task(handleEvent(rule, lambda: print("TrackListReplaced signal")))
-        # self.tasks.append(task)
+        rule = TrackAdded(object_path='/org/mpris/MediaPlayer2')
+        allSubscribed.append(
+                handleEvent(rule, self.handleTrackAdded))
 
         # Subscribe to /org/mpris/MediaPlayer2/TrackList property changes,
         # which mean song were added or removed
@@ -227,7 +217,7 @@ class Queue:
         """
         print(f"Handle player properties changed\n{signalMessage}")
         assert signalMessage.header.message_type == MessageType.signal
-        assert signalMessage.header.fields[HeaderFields.interface] == 'org.freedesktop.DBus.Properties'
+        assert signalMessage.header.fields[HeaderFields.interface] == PropertiesChanged.interface
         assert signalMessage.header.fields[HeaderFields.path] == '/org/mpris/MediaPlayer2'
         assert signalMessage.header.fields[HeaderFields.signature] == 'sa{sv}as'
 
@@ -245,9 +235,12 @@ class Queue:
 
             asyncio.create_task(self.handleSongChanged(None))
         elif (variant := changed.get("Metadata", None)) is not None:
-            # A song has changed
             typename, value = variant
-            asyncio.create_task(self.handleSongChanged(value))
+            assert typename == "a{sv}"
+
+            if (current_track := value.get("mpris:trackid")) is not None:
+                # Current song has changed
+                asyncio.create_task(self.handleSongChanged(value))
 
         if (variant := changed.get("CanGoNext", None)) is not None \
            and variant == ('b', False):
@@ -255,6 +248,57 @@ class Queue:
             # This does not trigger if this is the first song being played
             pass
 
+    def handleTrackAdded(self, signalMessage):
+        print("Handle TrackAdded")
+
+        assert signalMessage.header.message_type == MessageType.signal
+        assert signalMessage.header.fields[HeaderFields.interface] == TrackAdded.interface
+        assert signalMessage.header.fields[HeaderFields.path] == "/org/mpris/MediaPlayer2"
+        print(repr(signalMessage.header.fields[HeaderFields.signature]))
+        assert signalMessage.header.fields[HeaderFields.signature] == "a{sv}o"
+
+        metadata, after_mpris_track = signalMessage.body
+
+        url_signature, added_url = metadata.get("xesam:url")
+        assert url_signature == "s"
+
+        mpris_track_signature, mpris_track = metadata.get("mpris:trackid")
+        assert mpris_track_signature == "o"
+
+        print(f"Track {mpris_track} added after {after_mpris_track}. Url: {added_url}")
+
+        async def queueTrack():
+            state = None
+            async with self.tracklist_lock:
+                # match player's track metadata in the list of pending tracks
+                # note that multiple tacks could be added with the same url (same song played repeated times)
+                # in that case, do we really mind if we just pick the first one found?
+                def matchesUrl(track):
+                    return track.url == added_url
+
+                def matchesMprisTrack(track):
+                    return track.tracklist_id == after_mpris_track
+
+                track = next(t for t in self.pending if matchesUrl(t))
+                self.pending.remove(track)
+
+                assert mpris_track not in self.tracks
+                track.tracklist_id = mpris_track
+                self.tracks[mpris_track] = track
+
+                insert_index = 0
+                if after_mpris_track != "/org/mpris/MediaPlayer2/TrackList/NoTrack":
+                    insert_index = 1 + next((i for i, t in enumerate(self.tracklist) if matchesMprisTrack(t)))
+
+                self.tracklist.insert(insert_index, track)
+                state = QueueState(self)
+
+            print("Tracklist is now: {}".format(repr(state.tracks)))
+            print("Send notification change!")
+            await self.notifyListChange(state)
+
+        loop = asyncio.get_running_loop()
+        loop.create_task(queueTrack())
 
     async def handleSongChanged(self, metadata):
         # Network streams have unknown length until they start buffering
@@ -268,7 +312,7 @@ class Queue:
             if not metadata:
                 self.tracklist = []
                 self.tracks = {}
-                self.pending = deque()
+                self.pending = []
                 state = QueueState(self)
             else:
                 track = TrackMetadata.fromMPRISMetadata(metadata)
