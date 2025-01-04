@@ -57,7 +57,24 @@ function doSubmit() {
         else
             throw response;
     }).then((json) => {
-        updateList(json);
+        // ignored because we receive the update via EventSource
+        // updateList(json);
+    });
+}
+
+// Subscribe to server-sent song change events
+function setupSSE() {
+    evtSource = new EventSource("/changes");
+
+    evtSource.addEventListener("list-update", (event) => {
+      var queue = JSON.parse(event.data); // 'event.data' contains the new state
+      updateList(queue.tracks);
+    });
+
+    evtSource.addEventListener("error", (err) => {
+        console.error("EventSource failed:", err);
+        evtSource.close()
+        // setupSSE()
     });
 }
 
@@ -76,11 +93,5 @@ function onLoad() {
         doSubmit(); // Invoke custom HTTP request
     });
 
-    // Subscribe to server-sent song change events
-    const evtSource = new EventSource("/changes");
-    evtSource.onmessage = function(event) {
-      queue = JSON.parse(event.data); // 'event.data' contains the new state
-      etag = queue.etag;
-      updateList(queue.tracks);
-    }
+    setupSSE();
 }

@@ -22,6 +22,14 @@ from pathlib import Path
 import jinja2
 import os
 
+def tracklistResponse(state):
+    return json_response(
+        data=state.tracks,
+        headers={"ETag": state.etag},
+        dumps=lambda d: json.dumps(d, cls=TrackEncoder),
+    )
+
+
 class Server:
     rootdir = Path(__file__).parent / ".."
     assetsdir = rootdir / "html"
@@ -109,12 +117,9 @@ class Server:
         return web.Response(text=text, content_type="text/html")
 
     async def getTracks(self, request):
-        state = QueueState(self.queue)
-        return json_response(
-            data=state.tracks,
-            headers={"ETag": state.etag},
-            dumps=lambda d: json.dumps(d, cls=TrackEncoder),
-        )
+        async with self.queue.tracklist_lock:
+            state = QueueState(self.queue)
+        return tracklistResponse(state)
 
     async def addTrack(self, request):
         def queryInBackground(self, request):
@@ -129,8 +134,8 @@ class Server:
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(self.pool, queryInBackground, self, request)
 
-        await self.queue.addTrack(result)
-        return await self.getTracks(request)
+        state = await self.queue.addTrack(result)
+        return tracklistResponse(state)
 
     async def removeTrack(self, request):
         try:
@@ -144,10 +149,11 @@ class Server:
         with suppress(ConnectionResetError):
             async with sse_response(request) as response, self.queue.createListener() as events:
                 response.content_type = "application/json"
-                # Returns None when the server is shutting down
+                # payload is None when the events queue is shutting down
                 while (payload := await events.get()) != None:
                     body = json.dumps(payload, cls=TrackEncoder)
-                    await response.send(body)
+                    print("Send list-update event")
+                    await response.send(body, event="list-update")
                     events.task_done()
                 events.task_done()
         return response
