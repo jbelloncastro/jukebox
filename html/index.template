@@ -21,16 +21,20 @@
                     <span class="track-title">{% if current %}{{current.title}}{% endif %}</span>
                 </div>
                 <h2>Coming next</h2>
-                <div id="playlist"{% if not next %} class="undefined"{% endif %}>
-                    <ul>
+                <ul id="playlist"{% if not next %} class="undefined"{% endif %}>
                         {% for track in next %}
                         <li>
                             <span class="track-no">{{track.pos}}</span>
                             <span class="track-title">{{track.title}}</span>
                         </li>
                         {% endfor %}
-                    </ul>
-                </div>
+                </ul>
+                <template id="playlist-entry">
+                    <li>
+                        <span class="track-no"></span>
+                        <span class="track-title"></span>
+                    </li>
+                </template>
             </div>
         </div>
     </body>

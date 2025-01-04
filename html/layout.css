@@ -61,9 +61,9 @@ label {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-#playlist ul {
+#playlist {
     list-style: none;
-    padding: 0;
+    padding: 0 15px 0 15px;
     margin: 0;
 }
 
@@ -73,7 +73,7 @@ label {
 }
 
 .track-no {
-    padding-right: 10px;
+    padding-right: 10px 0 10px 0;
     color: #aaa;
 }
 
